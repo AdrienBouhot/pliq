@@ -1,0 +1,75 @@
+[
+  {
+    "titre": "Prise en main",
+    "pages": [
+      { "slug": "index", "titre": "Bienvenue" },
+      { "slug": "installer", "titre": "Installer" },
+      { "slug": "lancer", "titre": "Lancer l'atelier" },
+      { "slug": "reseau", "titre": "Sur le réseau" },
+      { "slug": "projets", "titre": "Les projets dbt" }
+    ]
+  },
+  {
+    "titre": "Le Flow",
+    "pages": [
+      { "slug": "flow", "titre": "Lire le Flow" },
+      { "slug": "flow-naviguer", "titre": "Se déplacer dans le flux" },
+      { "slug": "flow-grands-projets", "titre": "Quand il y a trop de tables" },
+      { "slug": "datasets", "titre": "Faire entrer une table" },
+      { "slug": "explorer", "titre": "Explorer un dataset" }
+    ]
+  },
+  {
+    "titre": "Les recipes",
+    "pages": [
+      { "slug": "recipes", "titre": "Créer une recipe" },
+      { "slug": "recipe-ecran", "titre": "L'écran d'une recipe" },
+      { "slug": "preparer", "titre": "Préparer" },
+      { "slug": "joindre", "titre": "Joindre" },
+      { "slug": "grouper", "titre": "Grouper" },
+      { "slug": "empiler", "titre": "Empiler" },
+      { "slug": "sql", "titre": "Recipe SQL" },
+      { "slug": "renommer", "titre": "Renommer un modèle" },
+      { "slug": "supprimer", "titre": "Supprimer une recipe" }
+    ]
+  },
+  {
+    "titre": "La préparation : les processeurs",
+    "pages": [
+      { "slug": "processeurs", "titre": "La bibliothèque" },
+      { "slug": "processeurs-colonnes", "titre": "Colonnes" },
+      { "slug": "processeurs-formules", "titre": "Formules" },
+      { "slug": "processeurs-filtrage", "titre": "Filtrage" },
+      { "slug": "processeurs-nettoyage", "titre": "Nettoyage" },
+      { "slug": "processeurs-nombres", "titre": "Nombres" },
+      { "slug": "processeurs-dates", "titre": "Dates" },
+      { "slug": "processeurs-lignes", "titre": "Lignes" }
+    ]
+  },
+  {
+    "titre": "Écrire dans l'entrepôt",
+    "pages": [
+      { "slug": "sortie", "titre": "L'onglet Sortie" },
+      { "slug": "incremental", "titre": "Les modèles incrémentaux" },
+      { "slug": "microbatch", "titre": "Microbatch" },
+      { "slug": "construire", "titre": "Construire avec dbt" }
+    ]
+  },
+  {
+    "titre": "Documenter et tester",
+    "pages": [
+      { "slug": "tests", "titre": "Les tests" },
+      { "slug": "documenter", "titre": "Documenter" },
+      { "slug": "fraicheur", "titre": "La fraîcheur des sources" }
+    ]
+  },
+  {
+    "titre": "Sous le capot",
+    "pages": [
+      { "slug": "fichiers", "titre": "Ce qui est écrit sur le disque" },
+      { "slug": "couverture-dbt", "titre": "Ce que l'atelier couvre de dbt" },
+      { "slug": "limites", "titre": "Limites actuelles" },
+      { "slug": "raccourcis", "titre": "Raccourcis clavier" }
+    ]
+  }
+]

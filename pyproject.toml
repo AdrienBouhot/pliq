@@ -1,0 +1,141 @@
+[build-system]
+# 1.26.0 et pas 1.24 : c'est la première version qui comprenne la forme
+# PEP 639 employée plus bas — une expression SPDX en `license` et
+# `license-files` en tableau. Les deux précédentes refusent le pyproject avec
+# « Field 'project.license-files' must be a table ». La borne était donc une
+# compatibilité annoncée qui n'existait pas : `uv build` résout toujours la
+# dernière version, et rien ne la vérifiait. Le job `paquet` de la CI
+# construit désormais avec ce minimum exact.
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pliq"
+dynamic = ["version"]
+description = "Atelier ETL visuel posé sur dbt Core : dataset → recipe → dataset."
+readme = "README.md"
+requires-python = ">=3.10"
+# Le projet est sous MIT ; les huit WOFF2 embarqués sont sous OFL 1.1, et le
+# paquet distribue donc les deux. Les textes des deux licences partent avec
+# lui (`license-files`).
+license = "MIT AND OFL-1.1"
+# La OFL exige que sa licence et ses notices de copyright accompagnent les
+# fichiers redistribués : le wheel emporte huit WOFF2 sous cette licence, et
+# ne portait que le MIT du projet.
+license-files = ["LICENSE", "pliq/static/fonts/OFL.txt"]
+authors = [{ name = "Adrien Bouhot", email = "adrien.bouhot@gmail.com" }]
+keywords = ["dbt", "etl", "duckdb", "data", "sql", "elt", "no-code"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Web Environment",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Database",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+]
+
+# Pliq ne dépend que de dbt. C'est dbt qui dépend d'un entrepôt, via
+# l'adaptateur que le projet a choisi — exactement comme dbt-core lui-même, qui
+# n'embarque aucun adaptateur. L'atelier n'en impose donc aucun.
+#
+# `websockets` est explicite plutôt que `uvicorn[standard]` : c'est la seule
+# pièce de cet extra dont on se serve (le suivi des runs en direct), et
+# l'extra tirerait en plus uvloop, watchfiles, httptools et python-dotenv.
+dependencies = [
+  "dbt-core>=1.9,<2",
+  # 0.132 et pas moins : c'est la version où FastAPI refuse par défaut un corps
+  # JSON envoyé sans `Content-Type`. Sans elle, une page étrangère peut poster
+  # sur l'atelier avec `fetch(..., {mode: "no-cors"})` et un `Blob` sans type —
+  # une requête « simple », donc sans contrôle CORS préalable — et déclencher
+  # une écriture. Ne pas lire la réponse ne l'empêche pas d'avoir eu lieu, et
+  # l'atelier n'a pas d'authentification à opposer : il ne compte que sur
+  # l'accès réseau. Cette borne *est* la parade ; ne jamais la contourner avec
+  # `FastAPI(strict_content_type=False)`.
+  "fastapi>=0.132",
+  "uvicorn>=0.30",
+  "websockets>=12",
+  "pyyaml>=6",
+  "ruamel.yaml>=0.18",
+  "sqlglot>=25",
+]
+
+[project.optional-dependencies]
+# Aucun entrepôt ici, et aucun driver : toute lecture passe par `dbt show`,
+# donc par l'adaptateur du projet. Le seul extra sert à faire tourner les tests,
+# qui construisent de vrais projets dbt et ont donc besoin d'un adaptateur réel.
+dev = ["pytest>=8", "httpx>=0.27", "dbt-duckdb>=1.9,<2"]
+
+[project.scripts]
+pliq = "pliq.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/AdrienBouhot/pliq"
+Repository = "https://github.com/AdrienBouhot/pliq"
+Issues = "https://github.com/AdrienBouhot/pliq/issues"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+# Ruff tournait déjà en local — le `.ruff_cache/` en témoignait — mais sans
+# configuration ni étape de CI : c'était une habitude, pas une garantie. Une
+# habitude ne survit pas à une contribution extérieure.
+[tool.ruff.lint]
+select = [
+  "F",      # erreurs franches : nom inconnu, import mort, f-string sans champ
+  "E", "W", # style pycodestyle
+  "B",      # pièges connus (mutable par défaut, boucle qui capture…)
+  "BLE",    # `except Exception` — toléré, mais jamais par inadvertance
+  "C4",     # compréhensions
+  "SLF",    # accès à un membre privé d'un autre module
+  "PLE",    # erreurs certaines de pylint
+  "PLW",    # avertissements de pylint
+  "RUF",    # règles propres à ruff
+]
+ignore = [
+  # Le projet écrit en français : accents et guillemets typographiques sont
+  # partout, dans les messages comme dans les commentaires.
+  "RUF001", "RUF002", "RUF003",
+  # Les noms de variables aussi sont en français (`_cle_nulle`, `jeton`…).
+  "PLC2401",
+  # `global _COURANT` est le dialecte du projet ouvert, assumé et documenté
+  # dans `recipes.py` : un ContextVar y serait faux, pas plus propre.
+  "PLW0603",
+  # Une boucle qui réaffecte sa variable est parfois la lecture la plus
+  # simple ; là où c'est un piège, le commentaire le dit.
+  "PLW2901",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Les tests ont le droit de regarder sous le capot : c'est même leur travail.
+"tests/*" = ["SLF"]
+
+[tool.hatch.version]
+path = "pliq/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pliq"]
+
+[tool.hatch.build]
+exclude = [
+  "**/__pycache__",
+  "**/*.py[cod]",
+  "**/.DS_Store",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/pliq",
+  "/tests",
+  "/README.md",
+  "/LICENSE",
+  "/pytest.ini",
+  # Le guide des tests propose `./test.sh` : le sdist ne les contenait pas,
+  # et la commande annoncée n'existait donc pas pour qui part de là.
+  "/test.sh",
+  "/run.sh",
+]

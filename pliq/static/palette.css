@@ -1,0 +1,87 @@
+/* La palette de Pliq — dix couleurs, et rien d'autre.
+
+   Elle vivait en tête de `app.css`, où seul l'atelier pouvait la lire. La
+   documentation servie par le même serveur (`/doc`) la veut aussi, et une
+   seconde copie aurait dérivé au premier ajustement : une couleur n'existe
+   qu'ici, les deux feuilles qui l'emploient la chargent avant la leur.
+
+   Un atelier a besoin de plus de paliers que n'en compte une palette : les
+   teintes marquées « dérivée » sont toutes des éclaircies ou des assombries
+   de ces dix couleurs, aucune n'est étrangère à la palette. */
+
+:root{
+  color-scheme: light;
+
+  /* --------------------------------------------------------- palette de base */
+  --brand-navy:#002340;          /* bleu nuit — primaire */
+  --brand-navy-print:#102948;    /* bleu nuit — variante logo / print */
+  --brand-orange:#FBA31C;        /* orange — accent */
+  --brand-orange-print:#F9AE07;  /* orange — variante logo / print */
+  --brand-grey-blue:#6E7988;     /* gris bleuté — texte courant */
+  --brand-grey-dark:#454D58;     /* gris foncé — texte secondaire */
+  --brand-blue-pale:#DEECF6;     /* bleu pâle — fonds de blocs */
+  --brand-green-pale:#CCDDAA;    /* vert pâle — fonds de blocs */
+  --brand-blue-mid:#5BA0D1;      /* bleu moyen — liens, illustrations */
+  --brand-red:#C3271A;           /* rouge — alertes */
+
+  /* ------------------------------------------------------- nuances dérivées */
+  --navy-soft:#183E5C;     /* bleu nuit éclairci — survol d'un aplat navy */
+  --blue-dk:#2F7CB0;       /* bleu moyen assombri — lisible en petit texte */
+  --blue-line:#A8C9E2;     /* bleu moyen éclairci — filets */
+  --blue-pale-2:#EDF4FA;   /* bleu pâle éclairci — survols */
+  --orange-dk:#C87B04;     /* orange assombri — code, texte sur blanc */
+  --orange-ink:#8A5B08;    /* orange très assombri — texte d'avertissement */
+  --orange-line:#F2D6A2;   /* orange éclairci — filets */
+  --orange-pale:#FDF1DA;   /* orange très éclairci — fonds d'avertissement */
+  --green-mid:#8FAF46;     /* vert pâle assombri — barre de qualité */
+  --green-dk:#4F6825;      /* vert pâle très assombri — texte */
+  --green-line:#B9CE92;    /* vert pâle — filets */
+  --green-pale-2:#EDF3E0;  /* vert pâle éclairci — fonds */
+  --red-line:#E8B7B2;      /* rouge éclairci — filets */
+  --red-pale:#FBEBE9;      /* rouge très éclairci — fonds */
+  --red-mid:#D9736A;       /* rouge éclairci — barre de qualité */
+  --grey-blue-2:#9AA5B2;   /* gris bleuté éclairci — texte tertiaire */
+  --edge:#A6B7C6;          /* gris bleuté — arêtes du graphe */
+  --on-navy:#9FB3C6;       /* texte courant posé sur le bleu nuit */
+  --on-navy-2:#8FA6BA;     /* texte d'invite posé sur le bleu nuit */
+  --on-navy-3:#6D86A0;     /* séparateurs posés sur le bleu nuit */
+
+  /* ------------------------------------------------------- rôles de l'atelier */
+  --ds:#3789C3;                   /* dataset — bleu moyen assombri */
+  --ds-src:#1E5F8C;               /* source déclarée — un cran plus profond */
+  --rc:var(--brand-orange);       /* recipe visuelle */
+  --rc-ink:var(--brand-navy);     /* pictogramme posé sur l'orange */
+  --rc-code:var(--orange-dk);     /* recipe SQL / code */
+  --blue:var(--blue-dk);          /* signification, liens */
+  --blue-sel:var(--brand-navy);   /* sélection */
+  --accent:var(--brand-orange);   /* soulignements, CTA, puces */
+
+  --ok:var(--green-mid);   /* qualité : valide */
+  --none:#DCE3EA;          /* qualité : vide */
+  --nok:var(--red-mid);    /* qualité : invalide */
+
+  --created:var(--green-dk);
+  --modified:var(--brand-grey-blue);
+  --deleted:var(--brand-red);
+
+  --ink:var(--brand-navy);
+  --ink-2:var(--brand-grey-dark);
+  --muted:var(--brand-grey-blue);
+  --faint:var(--grey-blue-2);
+  --line:#D5DFE8;
+  --line-soft:#E7EDF3;
+  --panel:#FFFFFF;
+  --grey:#F2F6FA;
+  --grey-2:#F6F9FC;
+  --sel:var(--brand-blue-pale);
+  --sel-head:var(--blue-pale-2);
+  --tint:var(--green-pale-2);      /* colonne impactée par l'étape */
+  --tint-head:var(--brand-green-pale);
+
+  --danger:var(--brand-red);
+
+  --sans:"Source Sans 3","Source Sans Pro",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:3px;
+  --shadow:0 1px 3px rgba(0,35,64,.12), 0 6px 20px -8px rgba(0,35,64,.30);
+}

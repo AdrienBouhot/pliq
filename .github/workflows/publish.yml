@@ -1,0 +1,64 @@
+# Publication sur PyPI via trusted publishing : aucun token à stocker.
+#
+# À faire une fois sur pypi.org → Publishing → Add a pending publisher :
+#   PyPI project name : pliq
+#   Owner / repo      : AdrienBouhot / pliq
+#   Workflow          : publish.yml
+#   Environment       : pypi
+#
+# Publier ensuite : bump de __version__ dans pliq/__init__.py, puis
+#   git tag v0.1.0 && git push --tags
+name: publish
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  # Le workflow de tests ne tourne que sur `main` et les PR : un tag peut
+  # pointer sur un commit qui n'est jamais passé par là. On le rejoue donc ici,
+  # sur le commit exact qu'on s'apprête à publier — PyPI ne permet pas de
+  # remplacer une version déjà en ligne.
+  tests:
+    uses: ./.github/workflows/tests.yml
+
+  build:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      # Le tag doit correspondre à __version__ : sinon on publie une version
+      # qui ne dit pas son nom, et PyPI ne permet pas de la remplacer.
+      - name: Vérifier que le tag correspond à la version du paquet
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' pliq/__init__.py)
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$version" != "$tag" ]; then
+            echo "::error::tag v$tag mais __version__ = $version"
+            exit 1
+          fi
+      # `dist/` d'abord effacé : `uv build` n'efface pas le dossier, et
+      # l'action de publication téléverse *tout* ce qu'elle y trouve. Sur un
+      # checkout neuf le risque est nul, mais ce workflow peut être rejoué
+      # ailleurs, et un artefact périmé publié ne se retire pas de PyPI.
+      - run: rm -rf dist && uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write   # exigé par trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

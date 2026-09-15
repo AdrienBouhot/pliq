@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Documentation Pliq</title>
+<link rel="icon" type="image/png" href="/static/logo.png">
+<!-- Les mêmes polices et la même palette que l'atelier, servies par lui :
+     la documentation ne demande rien à personne d'autre, et s'ouvre donc
+     aussi bien dans un train que devant un entrepôt de production. -->
+<link rel="stylesheet" href="/static/fonts.css">
+<link rel="stylesheet" href="/static/palette.css">
+<link rel="stylesheet" href="/static/doc/doc.css">
+</head>
+<body>
+
+<header class="dbar">
+  <button class="burger" id="burger" type="button" aria-label="Sommaire">☰</button>
+  <a class="brand" href="?p=index">
+    <img src="/static/logo.png" alt="" width="20" height="20">Pliq<i>.</i>
+    <span>Documentation</span>
+  </a>
+  <div class="recherche">
+    <input id="q" type="search" autocomplete="off" spellcheck="false"
+           placeholder="Rechercher dans la documentation…   /"
+           aria-label="Rechercher dans la documentation">
+    <div class="resultats" id="resultats" hidden></div>
+  </div>
+  <a class="retour" href="/">Ouvrir l'atelier</a>
+</header>
+
+<div class="corps">
+  <aside class="cote">
+    <nav id="nav" aria-label="Sommaire"></nav>
+  </aside>
+  <div class="voile" id="voile" aria-hidden="true"></div>
+
+  <main class="lecture" id="lecture">
+    <nav class="fil" id="fil" aria-label="Fil d'Ariane"></nav>
+    <div class="colonnes">
+      <article class="prose" id="page">
+        <p class="chargement">Chargement…</p>
+      </article>
+      <aside class="toc" id="toc" hidden aria-label="Sur cette page"></aside>
+    </div>
+    <footer class="voisins" id="voisins"></footer>
+  </main>
+</div>
+
+<script type="module" src="/static/doc/doc.js"></script>
+</body>
+</html>

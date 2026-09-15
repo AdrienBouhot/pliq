@@ -1,0 +1,20 @@
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+logs/
+*.duckdb
+*.duckdb.wal
+.claude-review.md
+
+# packaging
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+
+# Le dépôt ne contient que Pliq. Ce qui suit reste local :
+# projets dbt de bac à sable
+examples/
+# configuration d'éditeur, avec des chemins absolus
+.vscode/

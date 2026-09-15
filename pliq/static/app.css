@@ -1,0 +1,902 @@
+/* Pliq — atelier ETL visuel sur dbt Core.
+   Grammaire visuelle empruntée aux ETL visuels : dataset carré bleu,
+   recipe ronde orange, barre de qualité verte/grise/rouge.
+
+   La palette — les dix couleurs, leurs nuances dérivées et les rôles de
+   l'atelier — vit dans `palette.css`, que la page charge avant cette
+   feuille : la documentation servie par le même serveur l'emploie aussi, et
+   une couleur ne doit exister qu'à un seul endroit. */
+
+
+*{box-sizing:border-box}
+/* L'attribut `hidden` doit gagner contre toute classe qui pose un `display` :
+   la règle du navigateur, elle, perd contre la moindre `.btn{display:flex}`. */
+[hidden]{display:none !important}
+html,body{height:100%}
+body{
+  margin:0; background:var(--grey); color:var(--ink);
+  font-family:var(--sans); font-size:13px; line-height:1.45;
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+}
+button{font-family:inherit; font-size:inherit}
+:focus-visible{outline:2px solid var(--blue); outline-offset:1px}
+
+/* ------------------------------------------------------------------ topbar */
+/* Le bandeau porte le bleu nuit de la charte. Tout ce qui s'y pose bascule
+   donc en mode sombre : le logo est une image noire d'un seul tenant, on la
+   retourne en blanc au filtre plutôt que de trimballer deux fichiers. */
+.topbar{
+  display:flex; align-items:center; gap:10px; height:46px; flex:none;
+  padding:0 12px; background:var(--brand-navy); border-bottom:1px solid var(--brand-navy);
+  color:#fff;
+}
+.brand{font-weight:700; font-size:15px; letter-spacing:-.01em;
+  display:flex; align-items:center; gap:4px; color:#fff}
+.brand img{width:20px; height:20px; flex:none}
+.topbar .brand img{filter:brightness(0) invert(1)}
+.brand i{color:var(--accent); font-style:normal}
+.crumb{display:flex; align-items:center; gap:7px; font-size:13px; color:var(--on-navy)}
+.crumb .sep{color:var(--on-navy-3)}
+.crumb b{color:#fff; font-weight:600}
+.crumb button{
+  background:none; border:0; color:var(--accent); cursor:pointer; padding:0;
+  font-weight:600;
+}
+.crumb button:hover{text-decoration:underline}
+.spacer{flex:1}
+
+/* Boutons et champs du bandeau : pas d'aplat blanc sur le bleu nuit, un voile
+   clair suffit à les détacher. */
+.topbar .btn{
+  background:rgba(255,255,255,.10); border-color:rgba(255,255,255,.28); color:#fff;
+}
+.topbar .btn:hover:not(:disabled){background:rgba(255,255,255,.20)}
+.topbar .sel-input{
+  background:rgba(255,255,255,.10); border-color:rgba(255,255,255,.28); color:#fff;
+}
+.topbar .sel-input::placeholder{color:var(--on-navy-2)}
+.topbar .sel-input:focus{outline:none; border-color:var(--accent)}
+/* La liste déroulante, elle, se peint aux couleurs du système : on la ramène
+   sur fond clair, sinon Chrome affiche du blanc sur blanc. */
+.topbar .sel-input option{background:#fff; color:var(--ink)}
+
+/* Le « ? » de la documentation : un lien, dessiné comme un bouton rond. Son
+   glyphe est large et seul, et le `padding` des autres boutons le rendait
+   ovale. */
+.topbar .doc-btn{
+  width:26px; height:26px; padding:0; border-radius:50%;
+  justify-content:center; font-weight:700; text-decoration:none; line-height:1;
+}
+
+.btn{
+  border:1px solid var(--line); background:#fff; color:var(--ink-2);
+  padding:5px 11px; border-radius:var(--r); cursor:pointer; font-weight:600;
+  display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+}
+.btn:hover:not(:disabled){background:var(--grey-2)}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+/* Deux niveaux d'action : le bleu nuit valide, l'orange lance. Quand les deux
+   se côtoient — « Enregistrer » et « Enregistrer & exécuter » — l'accent de la
+   charte désigne sans hésitation celui qui fait tourner dbt. */
+.btn.primary{background:var(--brand-navy); border-color:var(--brand-navy); color:#fff}
+.btn.primary:hover:not(:disabled){background:var(--navy-soft); border-color:var(--navy-soft)}
+.btn.run{background:var(--accent); border-color:var(--accent); color:var(--brand-navy)}
+.btn.run:hover:not(:disabled){
+  background:var(--brand-orange-print); border-color:var(--brand-orange-print);
+}
+.btn.sm{padding:3px 8px; font-size:12px}
+.btn.ghost{border-style:dashed; color:var(--muted)}
+.btn.ghost:hover:not(:disabled){border-style:solid; color:var(--blue); border-color:var(--blue)}
+.btn.danger{color:var(--danger); border-color:var(--red-line)}
+.dot{width:7px; height:7px; border-radius:50%; background:currentColor}
+.dot.spin{animation:pulse .8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+
+.sel-input{
+  font-family:var(--mono); font-size:12px; padding:4px 8px;
+  border:1px solid var(--line); border-radius:var(--r); background:#fff; color:var(--ink);
+}
+select.sel-input{font-family:var(--sans)}
+
+/* -------------------------------------------------------------------- vues */
+.view{display:none; height:calc(100vh - 46px)}
+.view.on{display:flex; flex-direction:column}
+
+/* -------------------------------------------------------------------- flow */
+.flow-wrap{display:grid; grid-template-columns:minmax(0,1fr) 328px; flex:1; min-height:0}
+.flow-main{display:flex; flex-direction:column; min-width:0; background:#fff}
+.flow-bar{
+  display:flex; align-items:center; gap:10px; padding:7px 14px; flex-wrap:wrap;
+  border-bottom:1px solid var(--line-soft); font-size:12px; color:var(--muted); flex:none;
+}
+.flow-bar b{color:var(--blue); font-weight:600}
+.legend{display:flex; gap:14px; margin-left:auto; align-items:center}
+.legend span{display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--muted)}
+.legend .sq{width:11px; height:11px; background:var(--ds); border-radius:2px}
+.legend .ci{width:11px; height:11px; background:var(--rc); border-radius:50%}
+.legend .zn{width:14px; height:9px; background:var(--blue-pale-2); border:1.5px solid var(--blue-line); border-radius:2px}
+
+/* Le canevas : on ne fait plus défiler une boîte, on déplace le plan.
+   `.flow` porte une transformation translate+scale ; le viewport se contente de
+   la découper. Les nœuds gardent donc leurs coordonnées de layout, et rien
+   n'est recalculé quand on zoome. */
+.flow-view{
+  position:relative; overflow:hidden; flex:1; min-height:0; background:#fff;
+  cursor:grab; touch-action:none; outline:0;
+  background-image:radial-gradient(circle, var(--line-soft) 1px, transparent 1px);
+}
+.flow-view.dragging{cursor:grabbing}
+.flow{position:absolute; top:0; left:0; transform-origin:0 0}
+.flow-edges{position:absolute; inset:0; overflow:visible; pointer-events:none}
+.flow-edges path{fill:none; stroke:var(--edge); stroke-width:1.4}
+/* Une arête déviée enjambe des colonnes entières, mais c'est une dépendance
+   comme une autre : elle garde le trait des liens directs, seul son tracé
+   change. */
+.flow-edges path.hot{stroke:var(--accent); stroke-width:2}
+
+/* Mise à l'écart : lignée hors sujet, ou nom qui ne colle pas à la recherche.
+   On efface au lieu de masquer — la forme du graphe reste lisible. */
+.fnode.off{opacity:.14; filter:grayscale(1); pointer-events:none}
+.flow-edges path.off{opacity:.09}
+.fnode.hit .shape{box-shadow:0 0 0 3px var(--accent), 0 1px 2px rgba(0,35,64,.22)}
+/* Une recipe est déjà orange : l'anneau de recherche y passe au bleu moyen,
+   sinon il se fond dans le rond qu'il désigne. */
+.fnode.recipe.hit .shape{box-shadow:0 0 0 3px var(--brand-blue-mid), 0 1px 2px rgba(0,35,64,.22)}
+
+/* Trop dézoomé pour lire : les libellés ne feraient qu'une bouillie grise.
+   Le nom d'une zone survit : il y en a peu, et c'est le seul repère qui reste
+   quand on regarde le projet de loin. */
+.flow.lod .fnode:not(.group) .lbl,
+.flow.lod .fnode .badge{display:none}
+
+.zoombar{
+  position:absolute; right:14px; bottom:14px; z-index:5; display:flex; align-items:center;
+  gap:1px; padding:2px; background:#fff; border:1px solid var(--line);
+  border-radius:var(--r); box-shadow:var(--shadow);
+}
+.zoombar button{
+  border:0; background:none; cursor:pointer; padding:4px 9px; border-radius:2px;
+  font:600 12px var(--sans); color:var(--ink-2); min-width:28px;
+}
+.zoombar button:hover{background:var(--grey-2)}
+#btn-zoom-pct{font-family:var(--mono); font-size:11px; min-width:52px; color:var(--muted)}
+.zsep{width:1px; height:15px; background:var(--line-soft); margin:0 3px}
+.flow-hint{
+  position:absolute; left:14px; bottom:16px; margin:0; z-index:4;
+  font-size:11px; color:var(--faint); pointer-events:none; user-select:none;
+}
+.flow-find{width:150px; font-family:var(--sans)}
+.flow-bar .caret{color:var(--faint); font-size:10px}
+#btn-lineage[aria-pressed="true"]{
+  background:var(--sel); border-color:var(--blue-line); color:var(--brand-navy);
+}
+.cmenu button .n{float:right; color:var(--faint); font-variant-numeric:tabular-nums}
+.cmenu button:disabled{color:var(--faint); cursor:not-allowed}
+.cmenu-note{margin:2px 0 0; padding:6px 12px 7px; font-size:11px; color:var(--faint);
+  border-top:1px solid var(--line-soft)}
+.cmenu button:disabled:hover{background:none; color:var(--faint)}
+
+.fnode{position:absolute; transform:translate(-50%,0); display:flex;
+  flex-direction:column; align-items:center; gap:5px; background:none;
+  border:0; padding:0; cursor:pointer; width:148px}
+.fnode .shape{
+  display:grid; place-items:center; color:#fff; flex:none;
+  box-shadow:0 1px 2px rgba(0,35,64,.22);
+}
+.fnode .shape svg{width:26px; height:26px; fill:currentColor}
+.fnode.dataset .shape{width:68px; height:68px; border-radius:4px; background:var(--ds)}
+.fnode.dataset.seed .shape{background:var(--ds)}
+.fnode.dataset.source .shape{background:var(--ds-src)}
+.fnode.recipe{width:96px}
+.fnode.recipe .shape{width:42px; height:42px; border-radius:50%; background:var(--rc); color:var(--rc-ink)}
+.fnode.recipe .shape svg{width:20px; height:20px}
+.fnode.recipe.sql .shape{background:var(--rc-code); color:#fff}
+/* Le nom d'un nœud est du texte, pas une illustration : il prend le bleu nuit
+   des titres, et non le bleu moyen de la forme — trop clair pour du 12px. */
+.fnode .lbl{
+  font-size:12px; line-height:1.2; text-align:center; color:var(--brand-navy);
+  padding:1px 5px; border-radius:3px; word-break:break-word; max-width:100%;
+}
+.fnode.recipe .lbl{color:var(--muted); font-size:11px}
+.fnode.group{width:136px}
+.fnode.group .shape{
+  position:relative; width:136px; height:68px; border-radius:5px; background:var(--blue-pale-2);
+  border:1.5px solid var(--blue-line); color:var(--brand-navy); flex-direction:column; gap:1px;
+  box-shadow:none;
+}
+/* L'épaisseur du paquet : on voit qu'il y a plusieurs tables là-dessous. */
+.fnode.group .shape::before,
+.fnode.group .shape::after{
+  content:""; position:absolute; left:5px; right:5px; height:5px; border-radius:5px 5px 0 0;
+  background:var(--blue-pale-2); border:1.5px solid var(--blue-line); border-bottom:0;
+}
+.fnode.group .shape::before{top:-6px}
+.fnode.group .shape::after{top:-11px; left:10px; right:10px; opacity:.6}
+.fnode.group .zn-count{font-size:19px; font-weight:700; line-height:1.1}
+.fnode.group .zn-sub{font-size:10.5px; color:var(--muted); letter-spacing:.02em}
+.fnode.group .lbl{color:var(--brand-navy); font-weight:600}
+.fnode.group:hover .shape{border-color:var(--blue-sel); background:var(--sel)}
+/* La pastille est calée sur le carré d'un dataset : le bloc est plus large. */
+.fnode.group .stat{right:10px; bottom:30px}
+.fnode.on .lbl{background:var(--blue-sel); color:#fff}
+.fnode:hover .shape{box-shadow:0 0 0 3px rgba(91,160,209,.45), 0 1px 2px rgba(0,35,64,.22)}
+/* L'anneau de sélection est bleu nuit. Sur une recipe — un rond orange — il
+   se voit ; sur les datasets aussi, puisqu'ils tiennent le bleu moyen. */
+.fnode.on .shape{box-shadow:0 0 0 3px var(--blue-sel), 0 1px 2px rgba(0,35,64,.22)}
+.fnode .badge{
+  position:absolute; top:-4px; right:26px; background:#fff; border:1px solid var(--line);
+  border-radius:9px; font-size:9.5px; font-weight:700; padding:0 5px; color:var(--muted);
+}
+.fnode .stat{
+  position:absolute; bottom:22px; right:30px; width:11px; height:11px; border-radius:50%;
+  border:2px solid #fff;
+}
+.stat.success{background:var(--green-mid)}
+.stat.error{background:var(--danger)}
+.stat.warn{background:var(--brand-orange)}
+.stat.running{background:var(--brand-blue-mid); animation:pulse .8s ease-in-out infinite}
+.stat.queued{background:var(--faint)}
+.stat.idle,.stat.skipped{background:var(--none)}
+
+/* --------------------------------------------------------- panneau droite */
+/* `min-height:0` : sans lui, la cellule de grille prend la hauteur du contenu
+   au lieu de celle du volet, et c'est la page qui déborde — jamais `.rpanel-body`
+   qui défile. Même raison sur `.script` et `.grid-pane`. */
+.rpanel{border-left:1px solid var(--line); background:#fff; display:flex;
+  flex-direction:column; min-width:0; min-height:0}
+.rpanel-head{padding:12px 14px; border-bottom:1px solid var(--line-soft); flex:none}
+.rpanel-title{display:flex; align-items:center; gap:8px}
+.rpanel-title .mini{width:22px; height:22px; border-radius:3px; background:var(--ds);
+  display:grid; place-items:center; color:#fff; flex:none}
+.rpanel-title .mini svg{width:13px; height:13px; fill:currentColor}
+.rpanel-title h2{margin:0; font-size:14px; font-weight:700; word-break:break-all}
+.rpanel-sub{font-size:11.5px; color:var(--faint); margin:4px 0 0; word-break:break-all}
+.rpanel-body{overflow:auto; flex:1; min-height:0}
+
+.actions-row{display:flex; gap:6px; padding:11px 14px; flex-wrap:wrap;
+  border-bottom:1px solid var(--line-soft)}
+.sec-h{
+  font-size:10.5px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--faint); padding:13px 14px 7px;
+}
+.recipe-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:4px; padding:0 10px 12px}
+.recipe-tile{
+  display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 3px;
+  background:none; border:1px solid transparent; border-radius:var(--r); cursor:pointer;
+}
+.recipe-tile:hover{background:var(--grey-2); border-color:var(--line)}
+.recipe-tile .ci{width:34px; height:34px; border-radius:50%; background:var(--rc);
+  display:grid; place-items:center; color:var(--rc-ink)}
+.recipe-tile.code .ci{background:var(--rc-code); color:#fff}
+.recipe-tile .ci svg{width:17px; height:17px; fill:currentColor}
+.recipe-tile span{font-size:10.5px; color:var(--muted); text-align:center; line-height:1.2}
+
+.kv{display:flex; justify-content:space-between; gap:10px; padding:4px 14px; font-size:12px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0; font-family:var(--mono); font-size:11.5px; text-align:right;
+  word-break:break-all; color:var(--ink-2)}
+.tlist{list-style:none; margin:0; padding:0}
+.tlist li{display:flex; align-items:center; gap:8px; padding:5px 14px;
+  border-bottom:1px solid var(--line-soft); font-size:12px}
+.pill{font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  padding:1px 6px; border-radius:9px; border:1px solid; flex:none}
+.pill.success{color:var(--green-dk); border-color:var(--green-line); background:var(--green-pale-2)}
+.pill.error{color:var(--danger); border-color:var(--red-line); background:var(--red-pale)}
+.pill.warn{color:var(--orange-ink); border-color:var(--orange-line); background:var(--orange-pale)}
+.pill.idle{color:var(--faint); border-color:var(--line)}
+.pill.ok{color:var(--green-dk); border-color:var(--green-line); background:var(--green-pale-2)}
+.deps-warn{cursor:pointer}
+.deps-warn:hover{background:var(--orange-line)}
+/* Fraîcheur d'une source. Une pastille à part, au-dessus du nœud : ce n'est
+   pas le statut du dernier run. Une transformation qui réussit sur des données
+   figées depuis trois semaines réussit quand même. */
+.fnode .fresh{
+  position:absolute; top:-3px; left:24px; width:10px; height:10px; border-radius:50%;
+  border:2px solid #fff; background:var(--line); display:none;
+}
+.fnode .fresh.on{display:block}
+.fnode .fresh.success{background:var(--green-mid)}
+.fnode .fresh.warn{background:var(--brand-orange)}
+.fnode .fresh.error{background:var(--danger)}
+.pill.bad{color:var(--danger); border-color:var(--red-line); background:var(--red-pale)}
+
+/* Diagnostic de jointure : un constat par ligne, la gravité en tête. */
+.diag-list{display:flex; flex-direction:column; gap:8px; margin-top:10px}
+.diag{border-left:3px solid var(--line); padding:2px 0 2px 9px; font-size:12px;
+  line-height:1.5}
+.diag.ok{border-left-color:var(--green-line)}
+.diag.warn{border-left-color:var(--orange-line)}
+.diag.bad{border-left-color:var(--red-line)}
+.diag .pill{margin-right:6px; vertical-align:1px}
+.diag b{color:var(--ink)}
+.diag span:last-child{display:block; color:var(--muted); margin-top:2px}
+.jcard.diag-host{background:var(--grey-2)}
+/* Indicateur de la barre du haut : `hidden` doit l'emporter sur le display. */
+.ws-warn{padding:3px 8px; text-transform:none; letter-spacing:0; font-size:11px}
+.tlist .nm{font-family:var(--mono); font-size:11.5px; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap}
+.tlist .cm{margin-left:auto; color:var(--faint); font-family:var(--mono); font-size:11px}
+.tlist li.clic{cursor:pointer}
+.tlist li.clic:hover{background:var(--sel)}
+
+/* ------------------------------------------------------- contrôle complet */
+#data-body{padding:14px}
+.dgrid.check{font-size:12px}
+.dgrid.check th{
+  padding:6px 10px; font-size:10.5px; font-weight:700; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--faint); background:#fff;
+}
+.dgrid.check td{padding:5px 10px; border-bottom:1px solid var(--line-soft);
+  border-right:1px solid var(--line-soft); white-space:nowrap}
+.dgrid.check td.t{font-family:var(--mono); font-size:11px; color:var(--muted);
+  max-width:240px; overflow:hidden; text-overflow:ellipsis}
+.dgrid.check td.num{text-align:right; font-family:var(--mono)}
+.dgrid.check td.num.bad{color:var(--danger); font-weight:600}
+.dgrid.check td i{font-style:normal; color:var(--faint); font-size:10.5px}
+.seesql{margin-top:14px; font-size:12px; color:var(--muted)}
+.seesql summary{cursor:pointer; padding:4px 0}
+.seesql pre.code{max-height:30vh; margin-top:6px}
+
+/* ------------------------------------------------------------------ drawer */
+.drawer{border-top:1px solid var(--line); background:#fff; flex:none;
+  display:flex; flex-direction:column; height:0; overflow:hidden}
+.drawer.open{height:210px}
+.drawer-head{display:flex; align-items:center; gap:10px; padding:5px 12px;
+  background:var(--grey-2); border-bottom:1px solid var(--line-soft); flex:none;
+  font-size:11.5px; color:var(--muted)}
+.log{font-family:var(--mono); font-size:11.5px; margin:0; padding:7px 12px;
+  white-space:pre-wrap; word-break:break-word; overflow:auto; flex:1; color:var(--ink-2)}
+.log span{display:block}
+.log .t{color:var(--faint)}
+.log .error{color:var(--danger)}
+.log .warn{color:var(--orange-ink)}
+.log .done{color:var(--green-dk); font-weight:600}
+.log .cmd{font-weight:700; color:var(--ink)}
+
+/* ----------------------------------------------------------- recipe editor */
+.rec-head{
+  display:flex; align-items:center; gap:10px; padding:8px 12px; background:#fff;
+  border-bottom:1px solid var(--line); flex:none;
+}
+.rec-head .ci{width:28px; height:28px; border-radius:50%; background:var(--rc);
+  display:grid; place-items:center; color:var(--rc-ink); flex:none}
+.rec-head .ci svg{width:15px; height:15px; fill:currentColor}
+.rec-head .nm{font-weight:700; font-size:14px}
+.rec-head .io{font-size:11.5px; color:var(--muted); display:flex; align-items:center; gap:6px}
+.rec-head .io code{font-family:var(--mono); background:var(--grey-2); padding:1px 5px;
+  border-radius:3px; color:var(--ink-2)}
+.saved-tag{font-size:11px; font-weight:700; color:var(--green-dk); letter-spacing:.04em}
+.saved-tag.dirty{color:var(--orange-ink)}
+
+.rec-body{display:grid; grid-template-columns:344px minmax(0,1fr); flex:1; min-height:0}
+.script{background:var(--grey); border-right:1px solid var(--line);
+  display:flex; flex-direction:column; min-width:0; min-height:0}
+.stabs{display:flex; background:#fff; border-bottom:1px solid var(--line); flex:none; padding:0 4px}
+.stab{
+  flex:1; background:none; border:0; border-bottom:2px solid transparent; cursor:pointer;
+  padding:9px 4px; font-size:11.5px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--faint);
+}
+.stab:hover{color:var(--ink-2)}
+.stab.on{color:var(--ink); border-bottom-color:var(--accent)}
+.stab .badge{font-family:var(--mono); font-size:9.5px; background:var(--grey-2);
+  color:var(--muted); padding:1px 5px; border-radius:9px; margin-left:4px; letter-spacing:0}
+.spane{display:none; flex-direction:column; flex:1; min-height:0}
+.spane.on{display:flex}
+.spane-body{overflow:auto; flex:1; min-height:0; padding:12px}
+
+.script-head{padding:9px 12px; border-bottom:1px solid var(--line);
+  background:#fff; flex:none}
+.script-head .hrow{display:flex; align-items:center; gap:4px}
+.script-head .t{font-weight:700; font-size:12.5px}
+.script-head .d{font-size:11.5px; color:var(--muted); margin-top:1px}
+/* Annuler / rétablir : discrets tant qu'il n'y a rien à annuler. */
+.hbtn{
+  background:none; border:1px solid transparent; border-radius:var(--r); cursor:pointer;
+  color:var(--muted); font-size:15px; line-height:1; padding:3px 7px;
+}
+.hbtn:hover:not(:disabled){color:var(--ink); border-color:var(--line); background:var(--grey-2)}
+.hbtn:disabled{color:var(--line); cursor:default}
+.script-list{overflow:auto; flex:1; min-height:0; padding:8px}
+.script-foot{padding:9px 12px; border-top:1px solid var(--line); background:#fff;
+  display:flex; align-items:center; gap:8px; flex:none}
+
+.step{
+  background:#fff; border:1px solid var(--line); border-radius:var(--r);
+  margin-bottom:6px; border-left:3px solid transparent;
+}
+.step.on{background:var(--sel); border-color:var(--blue-line)}
+.step.off{opacity:.55}
+.step.off .desc{text-decoration:line-through}
+.step-main{display:flex; align-items:flex-start; gap:7px; padding:7px 8px; cursor:pointer}
+.step .num{
+  font-family:var(--mono); font-size:10px; color:var(--faint); flex:none;
+  width:14px; text-align:right; padding-top:1px;
+}
+.step .desc{flex:1; min-width:0; font-size:12px; line-height:1.35; word-break:break-word}
+.step .desc em{font-style:normal; color:var(--orange-dk); font-weight:600}
+.step .counts{display:flex; gap:6px; flex:none; font-size:10.5px;
+  font-family:var(--mono); padding-top:1px}
+.step .counts .c{color:var(--created)}
+.step .counts .m{color:var(--modified)}
+.step .counts .d{color:var(--deleted)}
+.step .acts{display:flex; gap:2px; flex:none}
+.step .acts button{
+  background:none; border:0; cursor:pointer; padding:1px 3px; color:var(--faint);
+  border-radius:2px; line-height:1;
+}
+.step .acts button:hover:not(:disabled){color:var(--ink); background:var(--grey-2)}
+.step .acts button:disabled{color:var(--line-soft); cursor:default}
+.step .acts button.on{color:var(--orange-dk)}
+.step .acts svg{width:13px; height:13px; fill:currentColor; display:block}
+.step-form{border-top:1px solid var(--line-soft); padding:9px 10px 11px; display:none}
+.step.open .step-form{display:block}
+.step .err{color:var(--danger); font-size:11.5px; padding:0 10px 8px}
+
+.fld{margin-bottom:8px}
+.fld > label{display:block; font-size:10.5px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--faint); margin-bottom:3px}
+.inp{
+  width:100%; border:1px solid var(--line); border-radius:var(--r); padding:5px 7px;
+  font-family:var(--mono); font-size:12px; background:#fff; color:var(--ink);
+}
+.inp.txt{font-family:var(--sans)}
+select.inp{font-family:var(--sans)}
+/* Une valeur qu'on montre sans la proposer à l'édition : l'expression Jinja
+   d'une relation qui ne pointe pas vers un modèle du projet. */
+.inp.ro{background:var(--sel); color:var(--ink-2); overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap}
+.inp:focus{outline:none; border-color:var(--blue); box-shadow:0 0 0 2px rgba(91,160,209,.30)}
+.rowline{display:grid; grid-template-columns:1fr 1fr auto; gap:6px; margin-bottom:5px;
+  align-items:center}
+.xbtn{border:1px solid var(--line); background:#fff; color:var(--faint); border-radius:var(--r);
+  width:24px; height:24px; cursor:pointer; display:grid; place-items:center; flex:none}
+.xbtn:hover{color:var(--danger); border-color:var(--danger)}
+.chips{display:flex; flex-wrap:wrap; gap:4px}
+.chips label{display:flex; align-items:center; gap:4px; font-size:11.5px;
+  border:1px solid var(--line); border-radius:11px; padding:2px 8px; cursor:pointer;
+  background:#fff}
+.chips label:has(input:checked){border-color:var(--blue); background:var(--sel-head); color:var(--brand-navy)}
+.chips input{margin:0; accent-color:var(--blue-sel)}
+
+.add-step{width:100%; padding:9px; border:1px dashed var(--line); background:#fff;
+  border-radius:var(--r); cursor:pointer; font-weight:600; color:var(--muted)}
+.add-step:hover{border-color:var(--blue); color:var(--blue); border-style:solid}
+.script-empty{text-align:center; color:var(--faint); font-size:12px; padding:26px 14px 16px;
+  line-height:1.6}
+.script-empty b{display:block; color:var(--muted); margin-bottom:4px}
+
+/* --------------------------------------------------------------- grid pane */
+.grid-pane{display:flex; flex-direction:column; min-width:0; min-height:0; background:var(--grey)}
+.grid-bar{
+  display:flex; align-items:center; gap:10px; padding:6px 12px; background:#fff;
+  border-bottom:1px solid var(--line); flex:none; font-size:12px; color:var(--muted);
+  flex-wrap:wrap;
+}
+.sample-badge{
+  background:var(--sel); color:var(--brand-navy); border:1px solid var(--blue-line); border-radius:10px;
+  padding:1px 8px; font-size:11px; font-weight:700; cursor:pointer;
+}
+.sample-badge.warn{background:var(--orange-pale); color:var(--orange-ink); border-color:var(--orange-line)}
+.grid-bar .counts{display:flex; gap:8px; font-family:var(--mono); font-size:11px}
+/* Le coût de l'aperçu : le `limit` ne borne que ce qui redescend, la requête
+   s'exécute en entier dans l'entrepôt. */
+.grid-bar .cost{font-family:var(--mono); font-size:11px; color:var(--faint)}
+.grid-bar .stale{color:var(--orange-ink); font-weight:600}
+.grid-bar .gone-note{color:var(--deleted); font-weight:600}
+.sample-badge.stale{background:var(--orange-pale); color:var(--orange-ink); border-color:var(--orange-line)}
+.grid-scroll{overflow:auto; flex:1; min-height:0; background:#fff}
+
+.dgrid{border-collapse:separate; border-spacing:0; font-size:13px; min-width:100%}
+.dgrid th{
+  padding:0; background:#fff; border-bottom:1px solid var(--line);
+  border-right:1px solid var(--line-soft); position:sticky; top:0; z-index:2;
+  text-align:left; vertical-align:top; min-width:118px;
+}
+.dgrid th.tinted .hname{background:var(--tint-head)}
+.hname{
+  display:flex; align-items:center; gap:5px; padding:5px 7px 4px; cursor:pointer;
+  font-weight:600; font-size:12.5px; color:var(--ink);
+}
+.hname:hover{background:var(--sel-head)}
+.hname .caret{color:var(--faint); font-size:9px; margin-left:auto}
+.hstore{padding:0 7px 2px; font-size:11px; color:var(--muted)}
+.hmean{padding:0 7px 4px; font-size:11px; color:var(--blue); font-weight:600}
+.qbar{display:flex; height:11px; width:100%}
+.qbar i{display:block; height:100%}
+.qbar .q-ok{background:var(--ok)}
+.qbar .q-empty{background:var(--none)}
+.qbar .q-nok{background:var(--nok)}
+
+.dgrid td{
+  padding:0 6px; line-height:25px; height:25px; border-bottom:1px solid var(--line-soft);
+  border-right:1px solid var(--line-soft); white-space:pre; font-family:var(--mono);
+  font-size:12px; color:var(--ink-2); max-width:340px; overflow:hidden;
+  text-overflow:ellipsis;
+}
+.dgrid tbody tr:nth-child(even) td{background:var(--grey-2)}
+.dgrid td.tinted{background:var(--tint) !important}
+.dgrid td.num{text-align:right}
+.dgrid td.nul{color:var(--faint); font-style:italic}
+.dgrid td.bad{background:var(--red-pale) !important}
+
+/* Une colonne supprimée reste à sa place, barrée, ses cellules hachurées :
+   la hachure dit « plus de données ici » sans laisser croire à des valeurs
+   vides, que la grille écrirait `NULL`. */
+.dgrid th.gone{background:var(--grey)}
+.dgrid th.gone .hname{color:var(--muted); text-decoration:line-through}
+.dgrid th.gone .hname:hover{background:var(--red-pale)}
+.hstore.tag-gone{color:var(--deleted); font-weight:600}
+.dgrid th.gone .qbar{background:var(--none)}
+.dgrid td.gone, .dgrid tbody tr:nth-child(even) td.gone{
+  background:repeating-linear-gradient(
+    -45deg, var(--grey) 0 5px, var(--grey-2) 5px 10px);
+}
+
+/* ------------------------------------------------------------- column menu */
+.cmenu{
+  position:fixed; z-index:40; background:#fff; border:1px solid var(--line);
+  border-radius:var(--r); box-shadow:var(--shadow); min-width:250px; max-height:70vh;
+  overflow:auto; padding:4px 0; display:none;
+}
+.cmenu.on{display:block}
+.cmenu .grp{font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--faint); padding:7px 12px 3px}
+.cmenu button{
+  display:block; width:100%; text-align:left; background:none; border:0; cursor:pointer;
+  padding:5px 12px; font-size:12.5px; color:var(--ink-2);
+}
+.cmenu button:hover{background:var(--sel-head); color:var(--brand-navy)}
+.cmenu button.danger{color:var(--danger)}
+.cmenu button.danger:hover{background:var(--red-pale); color:var(--danger)}
+.cmenu hr{border:0; border-top:1px solid var(--line-soft); margin:4px 0}
+.cmenu .note{padding:2px 12px 6px; font-size:11.5px; color:var(--muted)}
+
+/* ------------------------------------------------------ processor library */
+.lib{
+  position:absolute; inset:0; background:#fff; z-index:30; display:none;
+  flex-direction:column;
+}
+.lib.on{display:flex}
+.lib-head{display:flex; align-items:center; gap:10px; padding:9px 12px;
+  border-bottom:1px solid var(--line); flex:none; flex-wrap:wrap}
+.lib-head .cnt{font-size:12px; color:var(--muted)}
+.lib-shorts{display:flex; gap:5px; margin-left:auto; flex-wrap:wrap}
+.lib-shorts button{
+  border:1px solid var(--line); background:#fff; border-radius:14px; padding:3px 10px;
+  font-size:11.5px; cursor:pointer; color:var(--ink-2); font-weight:600;
+}
+.lib-shorts button:hover{border-color:var(--blue); color:var(--blue)}
+.lib-body{display:grid; grid-template-columns:210px minmax(0,1fr) minmax(0,320px);
+  flex:1; min-height:0}
+.lib-cats{border-right:1px solid var(--line-soft); overflow:auto; padding:6px 0}
+.lib-cats button{display:flex; width:100%; align-items:center; gap:7px; background:none;
+  border:0; padding:6px 12px; cursor:pointer; font-size:12.5px; color:var(--ink-2)}
+.lib-cats button:hover{background:var(--grey-2)}
+.lib-cats button.on{background:var(--sel); font-weight:600}
+.lib-cats .n{margin-left:auto; font-size:10.5px; color:var(--faint); font-family:var(--mono)}
+.lib-list{border-right:1px solid var(--line-soft); overflow:auto; padding:6px 0}
+.lib-list button{display:block; width:100%; text-align:left; background:none; border:0;
+  padding:7px 12px; cursor:pointer; font-size:12.5px; color:var(--ink-2)}
+.lib-list button:hover,.lib-list button.on{background:var(--sel)}
+.lib-list .c{display:block; font-size:11px; color:var(--faint)}
+.lib-help{padding:16px; overflow:auto}
+.lib-help h3{margin:0 0 8px; font-size:15px}
+.lib-help p{margin:0 0 10px; color:var(--muted); font-size:12.5px; line-height:1.6}
+
+/* -------------------------------------------------------- sortie & tests */
+.hint{
+  background:var(--sel); border:1px solid var(--blue-line); border-radius:var(--r);
+  padding:8px 10px; font-size:12px; color:var(--brand-navy); line-height:1.5; margin:0 0 12px;
+}
+.hint b{font-weight:700}
+.hint code{font-family:var(--mono); font-size:11px; background:rgba(255,255,255,.6);
+  padding:1px 4px; border-radius:3px}
+/* Une colonne touchée dans la modale d'impact : qui la lit, et de quoi la
+   faire suivre. */
+.impact{margin-bottom:10px}
+.impact .jcol{margin:2px 10px 0; font-size:12px}
+.impact .jcol code{font-family:var(--mono); font-size:11px}
+
+.warnbox{
+  background:var(--orange-pale); border:1px solid var(--orange-line); border-radius:var(--r);
+  padding:8px 10px; font-size:12px; color:var(--orange-ink); line-height:1.5; margin:0 0 12px;
+}
+
+.tcol{
+  background:#fff; border:1px solid var(--line); border-radius:var(--r);
+  margin-bottom:8px; padding:9px 10px;
+}
+.tcol.missing{border-style:dashed; opacity:.75}
+.tcol-h{display:flex; align-items:baseline; gap:7px; margin-bottom:7px}
+.tcol-h .cn{font-family:var(--mono); font-size:12.5px; font-weight:600}
+.tcol-h .ct{font-size:11px; color:var(--muted)}
+.tcol-h .miss{font-size:10.5px; color:var(--orange-ink); margin-left:auto}
+.tcol .desc-in{width:100%; margin-top:7px}
+.tflags{display:flex; gap:5px; flex-wrap:wrap; align-items:center}
+.tflag{
+  border:1px solid var(--line); background:#fff; border-radius:12px; padding:2px 9px;
+  font-size:11.5px; cursor:pointer; color:var(--muted); font-family:var(--mono);
+}
+.tflag:hover{border-color:var(--blue)}
+.tflag.on{background:var(--green-pale-2); border-color:var(--green-line); color:var(--green-dk); font-weight:600}
+.tflag.add{border-style:dashed}
+.tflag.add:hover{border-style:solid; color:var(--blue)}
+.trow{
+  display:flex; align-items:center; gap:6px; margin-top:6px; padding:5px 7px;
+  background:var(--grey-2); border-radius:var(--r); flex-wrap:wrap;
+}
+.trow .tn{font-family:var(--mono); font-size:11.5px; font-weight:600; color:var(--ink-2)}
+.trow .inp{flex:1; min-width:90px; padding:3px 6px; font-size:11.5px}
+.trow select.inp{flex:0 0 auto; width:auto}
+
+/* ------------------------------------------------------------------ modale */
+.scrim{position:fixed; inset:0; background:rgba(0,35,64,.50); display:none;
+  align-items:center; justify-content:center; z-index:50; padding:20px}
+.scrim.on{display:flex}
+.modal{background:#fff; border-radius:4px; box-shadow:var(--shadow);
+  width:min(760px,100%); max-height:92vh; display:flex; flex-direction:column}
+.modal-head{display:flex; align-items:center; gap:11px; padding:14px 18px;
+  border-bottom:1px solid var(--line); flex:none}
+.modal-head .ci{width:34px; height:34px; border-radius:50%; background:var(--rc);
+  display:grid; place-items:center; color:var(--rc-ink); flex:none}
+.modal-head .ci svg{width:18px; height:18px; fill:currentColor}
+.modal-head h2{margin:0; font-size:16px; font-weight:700}
+.modal-body{display:grid; grid-template-columns:1fr 1fr; flex:1; min-height:0; overflow:auto}
+/* Une modale à une seule colonne. La grille à deux moitiés tient sa marge de
+   `.mhalf` ; sans elle, le contenu touchait les quatre bords — un champ de
+   saisie à ras du cadre, et l'en-tête au-dessus qui, lui, était en retrait. */
+.modal-body.solo{display:block; padding:16px 18px}
+.mhalf{padding:16px 18px}
+.mhalf + .mhalf{border-left:1px solid var(--line-soft)}
+.mhalf h3{margin:0 0 12px; font-size:12px; font-weight:700; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--faint); text-align:center}
+.modal-foot{display:flex; gap:9px; justify-content:flex-end; padding:12px 18px;
+  border-top:1px solid var(--line); background:var(--grey-2); flex:none}
+.merr{color:var(--danger); font-size:12px; margin:6px 0 0}
+
+/* ------------------------------------------------------------------ toasts */
+.toasts{position:fixed; right:14px; bottom:14px; display:flex; flex-direction:column;
+  gap:7px; z-index:60}
+.toast{background:#fff; border:1px solid var(--line); border-left:3px solid var(--blue-sel);
+  border-radius:var(--r); padding:9px 13px; box-shadow:var(--shadow); max-width:400px}
+.toast.error{border-left-color:var(--danger)}
+.toast.ok{border-left-color:var(--green-mid)}
+/* Ni une erreur — l'enregistrement a eu lieu — ni un succès muet : ce qui a
+   été écrit n'est pas tout ce que l'écran montre. */
+.toast.warn{border-left-color:var(--accent)}
+.toast b{display:block; margin-bottom:2px}
+.toast span{color:var(--muted); font-size:11.5px; font-family:var(--mono);
+  white-space:pre-wrap; word-break:break-word; display:block; max-height:170px; overflow:auto}
+
+.err-box{margin:12px; padding:11px 13px; border:1px solid var(--red-line); background:var(--red-pale);
+  border-radius:var(--r); color:var(--danger); font-family:var(--mono); font-size:11.5px;
+  white-space:pre-wrap; word-break:break-word}
+.empty{padding:26px 16px; text-align:center; color:var(--faint); font-size:12.5px; line-height:1.6}
+.empty b{display:block; color:var(--muted); margin-bottom:4px}
+
+.code{margin:0; padding:12px 14px; font-family:var(--mono); font-size:11.5px;
+  line-height:1.65; white-space:pre; overflow:auto; background:var(--grey-2); color:var(--ink-2)}
+/* Éditeur SQL : un textarea ne se colore pas. On peint donc la coloration sur
+   un calque `<pre>` placé dessous, et on rend le texte du textarea transparent.
+   Les deux calques doivent partager exactement la même métrique — police,
+   corps, interligne, marge intérieure, retour à la ligne — sinon le texte
+   coloré se décale de la frappe. */
+.sqled{position:relative; height:100%; background:var(--grey-2);
+  border:1px solid var(--line); border-radius:var(--r); overflow:hidden}
+.sqled > pre, .sqled > textarea{
+  margin:0; padding:12px 14px; border:0; font-family:var(--mono); font-size:11.5px;
+  line-height:1.65; white-space:pre-wrap; overflow-wrap:break-word; tab-size:4;
+}
+.sqled > pre{position:absolute; inset:0; overflow:hidden; pointer-events:none;
+  color:var(--ink-2); background:none}
+.sqled > textarea{
+  position:relative; display:block; width:100%; height:100%; resize:none;
+  background:transparent; color:transparent; caret-color:var(--ink); outline:none;
+  overflow:auto;
+}
+.sqled:focus-within{border-color:var(--blue)}
+
+.k{color:var(--blue-dk); font-weight:600}
+.j{color:var(--orange-dk); font-weight:600}
+.s{color:var(--orange-ink)}
+.n{color:var(--green-dk)}
+.c{color:var(--faint); font-style:italic}
+
+@media (max-width:1200px){
+  .flow-wrap{grid-template-columns:minmax(0,1fr) 288px}
+  .rec-body{grid-template-columns:300px minmax(0,1fr)}
+  .lib-body{grid-template-columns:180px minmax(0,1fr)}
+  .lib-help{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001ms !important}}
+
+/* ================================================================== ACCUEIL */
+.brand{background:none; border:0; padding:0; cursor:pointer; color:inherit}
+.brand:hover i{color:var(--blue-sel)}
+
+#view-home{overflow:auto; background:var(--grey)}
+.home{max-width:1080px; margin:0 auto; padding:28px 20px 48px}
+.home-head{display:flex; align-items:flex-start; gap:18px; margin-bottom:20px; flex-wrap:wrap}
+/* Le logo est un aplat noir d'un seul tenant : on s'en sert de pochoir pour
+   le teinter au bleu nuit, plutôt que d'embarquer un second fichier. */
+.home-mark{
+  width:44px; height:44px; flex:none; margin-top:2px;
+  background:var(--brand-navy);
+  -webkit-mask:url("/static/logo.png") center/contain no-repeat;
+  mask:url("/static/logo.png") center/contain no-repeat;
+}
+.home-head h1{margin:0 0 4px; font-size:22px; font-weight:700; letter-spacing:-.01em}
+.home-head p{margin:0; color:var(--muted); font-size:12.5px; max-width:60ch}
+.home-head code{font-family:var(--mono); font-size:11.5px}
+.home-actions{margin-left:auto; display:flex; gap:8px; flex:none}
+
+.home-grid{display:grid; gap:12px; grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+.home-empty{color:var(--muted); font-size:13px; padding:24px 0}
+
+.pcard{
+  background:#fff; border:1px solid var(--line); border-radius:4px;
+  padding:14px 15px 12px; display:flex; flex-direction:column; gap:9px;
+}
+.pcard.active{border-color:var(--blue-sel); box-shadow:0 0 0 1px var(--blue-sel)}
+.pcard.broken{border-color:var(--red-line); background:var(--red-pale)}
+.pcard h3{margin:0; font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px}
+.pcard h3 .open{
+  font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:#fff; background:var(--blue-sel); border-radius:8px; padding:1px 7px;
+}
+.pcard .path{
+  font-family:var(--mono); font-size:11px; color:var(--muted);
+  word-break:break-all; line-height:1.35;
+}
+.pcard .facts{display:flex; flex-wrap:wrap; gap:6px}
+.pcard .fact{
+  font-size:11.5px; color:var(--ink-2); background:var(--grey-2);
+  border:1px solid var(--line-soft); border-radius:10px; padding:1px 8px;
+}
+.pcard .fact b{font-weight:700}
+.pcard .fact.warn{background:var(--orange-pale); border-color:var(--orange-line); color:var(--orange-ink)}
+.pcard .foot{display:flex; align-items:center; gap:7px; margin-top:2px}
+.pcard .foot .when{font-size:11.5px; color:var(--faint); margin-right:auto}
+
+/* ======================================================== nouveau dataset */
+.dpane{display:none; flex:1; min-height:0}
+.dpane.on{display:flex}
+.dpick{display:grid; grid-template-columns:1.35fr 1fr; flex:1; min-height:0; width:100%}
+.dpick-list{display:flex; flex-direction:column; min-height:0; border-right:1px solid var(--line)}
+.dpick-form{padding:14px 16px; overflow:auto}
+.dpick-bar{
+  display:flex; align-items:center; gap:10px; padding:9px 12px;
+  border-bottom:1px solid var(--line-soft); flex:none;
+}
+.dpick-bar .cnt{font-size:11.5px; color:var(--muted)}
+.dpick-scroll{overflow:auto; flex:1; min-height:220px}
+.chk{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); cursor:pointer}
+.chk input{margin:0}
+
+.trow-t{display:flex; align-items:center; gap:9px; padding:6px 12px; cursor:pointer;
+  border-bottom:1px solid var(--line-soft); font-size:12.5px}
+.trow-t:hover{background:var(--sel)}
+.trow-t .sch{font-family:var(--mono); font-size:11px; color:var(--faint)}
+.trow-t .nm{font-weight:600}
+.trow-t .meta{margin-left:auto; font-size:11px; color:var(--muted); display:flex; gap:8px; flex:none}
+.trow-t .tag{font-size:10.5px; border-radius:8px; padding:0 6px; background:var(--grey-2);
+  border:1px solid var(--line-soft); color:var(--muted)}
+.trow-t.known{opacity:.6}
+.trow-t.known .tag{background:var(--sel); border-color:var(--blue-line); color:var(--brand-navy)}
+.dempty{padding:22px 14px; color:var(--muted); font-size:12.5px; text-align:center}
+
+.dprev{margin-top:12px; font-size:12px; color:var(--muted)}
+.dprev table{border-collapse:collapse; width:100%; font-size:11.5px; margin-top:6px}
+.dprev th{background:var(--grey-2); font-weight:600; text-align:left; padding:3px 6px;
+  border:1px solid var(--line-soft); white-space:nowrap}
+.dprev td{padding:3px 6px; border:1px solid var(--line-soft); font-family:var(--mono);
+  white-space:nowrap; max-width:150px; overflow:hidden; text-overflow:ellipsis}
+.dprev .wrap{overflow:auto; max-height:190px}
+
+.mnote{font-size:11.5px; color:var(--muted)}
+.npinfo{
+  margin-top:10px; padding:10px 12px; background:var(--grey-2);
+  border:1px solid var(--line-soft); border-radius:3px;
+  font-size:12px; color:var(--muted); line-height:1.5;
+}
+.npinfo code{font-family:var(--mono); font-size:11px}
+.modal-foot .merr{margin:0; margin-right:auto; text-align:left}
+.btn.danger:hover:not(:disabled){background:var(--danger); border-color:var(--danger); color:#fff}
+.home-scan{background:#fff; border:1px solid var(--line); border-radius:4px;
+  padding:12px 14px; margin-bottom:14px}
+.drop-row{display:flex; gap:6px}
+.drop-row .inp{flex:1}
+.trow .inp.bad{border-color:var(--danger); background:var(--red-pale)}
+
+/* =============================================== éditeurs Join / Group / Stack */
+.jhead{
+  padding:10px 12px; background:var(--sel); border:1px solid var(--blue-line);
+  border-radius:3px; margin-bottom:10px; font-size:12.5px;
+}
+.jhead b{font-family:var(--mono); font-size:12px; overflow-wrap:anywhere}
+.jhead span{display:block; color:var(--muted); font-size:11.5px; margin-top:2px}
+
+.jcard{
+  background:#fff; border:1px solid var(--line); border-radius:3px;
+  padding:11px 12px; margin-bottom:10px;
+}
+.jcard-h{
+  display:flex; align-items:center; gap:7px; font-size:13px; flex-wrap:wrap;
+  margin:-2px 0 9px; padding-bottom:8px; border-bottom:1px solid var(--line-soft);
+}
+.jcard-h b{font-family:var(--mono); font-size:12px; min-width:0; overflow-wrap:anywhere}
+.jcard-h i{font-style:normal; color:var(--muted); font-size:11.5px}
+.jcard-h .ci{
+  width:22px; height:22px; border-radius:50%; background:var(--rc); color:#fff;
+  display:inline-flex; align-items:center; justify-content:center; flex:none;
+}
+.jcard-h .ci svg{fill:currentColor}
+.jcard > .btn.ghost{width:100%; margin-top:2px}
+
+.jkeys{display:flex; flex-direction:column; gap:6px}
+.jrow{display:flex; align-items:center; gap:6px}
+.jrow .inp{flex:1; min-width:0}
+.jrow .eq{color:var(--muted); font-weight:700; flex:none}
+
+.jmodes{display:flex; gap:6px; margin-bottom:9px}
+.jsub{
+  font-family:var(--mono); font-size:11px; color:var(--muted); text-transform:none;
+  overflow-wrap:anywhere;
+  margin:10px 0 4px; padding-bottom:3px; border-bottom:1px solid var(--line-soft);
+}
+.jcol{
+  display:flex; align-items:center; gap:7px; padding:3px 4px; border-radius:2px;
+  font-size:12.5px; cursor:pointer;
+}
+.jcol:hover{background:var(--grey-2)}
+.jcol.on{background:var(--sel)}
+.jcol input[type=checkbox]{margin:0; flex:none}
+.jcol .cn{
+  font-family:var(--mono); font-size:11.5px; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.jcol .ct{color:var(--faint); font-size:10.5px; margin-left:auto; flex:none}
+.jcol .inp.sm{
+  flex:0 1 118px; min-width:64px; padding:1px 5px; font-size:11px; height:20px;
+  font-family:var(--mono);
+}
+
+.chips{display:flex; flex-wrap:wrap; gap:5px; margin-bottom:9px; min-height:22px}
+.chip{
+  display:inline-flex; align-items:center; gap:4px; background:var(--sel);
+  border:1px solid var(--blue-line); border-radius:11px; padding:1px 4px 1px 9px;
+  font-family:var(--mono); font-size:11.5px;
+}
+.chip .cx{border:0; background:none; cursor:pointer; color:var(--muted); font-size:14px;
+  line-height:1; padding:0 3px}
+.chip .cx:hover{color:var(--danger)}
+.chip-empty{color:var(--faint); font-size:11.5px; font-style:italic}
+
+.aggrow{display:flex; align-items:center; gap:6px; margin-bottom:4px}
+.aggrow .inp{flex:1; min-width:0}
+.aggfilter{margin:0 0 9px 0}
+.aggfilter .inp{width:100%; font-family:var(--mono); font-size:11px}
+
+.stackgrid{display:grid; gap:0; font-size:11.5px; margin-top:6px;
+  grid-auto-rows:minmax(22px,auto); grid-template-columns:1fr repeat(auto-fit,minmax(64px,auto))}
+.sg-h{font-weight:700; font-size:10.5px; letter-spacing:.04em; text-transform:uppercase;
+  color:var(--muted); padding:3px 6px; border-bottom:1px solid var(--line)}
+.sg-c{font-family:var(--mono); padding:3px 6px; border-bottom:1px solid var(--line-soft)}
+.sg-v{text-align:center; padding:3px 6px; border-bottom:1px solid var(--line-soft)}
+.sg-v.yes{color:var(--created); font-weight:700}
+.sg-v.no{color:var(--faint); font-family:var(--mono); font-size:10.5px}
+
+.tcol.doc{background:var(--grey-2)}
+.tcol.doc .doc-ta{width:100%; font-family:var(--sans); resize:vertical; min-height:44px}
+
+/* Le compte de ce qui est replié, à côté du compte de ce qui est visible. */
+.fold-note{color:var(--faint)}
+
+/* Une liste de valeurs : un champ par valeur, plutôt qu'une chaîne découpée
+   sur la virgule. Le contrôle précédent ne pouvait représenter ni une valeur
+   qui contient une virgule, ni une chaîne vide, ni des espaces significatifs. */
+.values-list { display: flex; flex-direction: column; gap: 6px; }
+.values-row { display: flex; gap: 6px; align-items: center; }
+.values-row .inp { flex: 1; }
+.values-row .btn { flex: 0 0 auto; min-width: 28px; }

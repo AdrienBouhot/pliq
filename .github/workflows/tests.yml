@@ -1,0 +1,174 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Appelé par `publish` : un tag ne doit jamais partir sur PyPI sans que le
+  # commit qu'il désigne ait été testé.
+  workflow_call:
+
+jobs:
+  # Ruff tournait déjà sur le poste de l'auteur — le `.ruff_cache/` en
+  # témoignait — mais sans configuration versionnée ni étape ici : c'était une
+  # habitude, et une habitude ne survit pas à une contribution extérieure. Les
+  # règles sont dans `pyproject.toml`, avec la raison de chaque exception.
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: check
+
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      # Quelques tests font tourner `app.js` sous node : sans lui, ils se
+      # sautent en silence — dont le contrôle de syntaxe de l'interface, seul
+      # filet contre un `app.js` cassé. Un saut n'est pas un échec, et c'est
+      # bien le problème : on le déclare ici plutôt que de l'hériter de
+      # l'image du runner.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # Un venv explicite : les interpréteurs gérés par uv refusent `--system`.
+      - run: uv venv --python ${{ matrix.python }} .venv
+      - run: uv pip install --python .venv/bin/python -e '.[dev]'
+      - run: .venv/bin/pytest -q
+
+  # `pyproject.toml` accepte dbt à partir de 1.9 et FastAPI à partir de 0.132.
+  # Sans ce job, ces bornes ne sont que des promesses : la matrice ci-dessus
+  # résout toujours les versions les plus récentes, et ce qui casse à la borne
+  # basse ne se voit que chez l'utilisateur. FastAPI n'y est pas pour rien : sa
+  # borne *est* la parade contre une écriture déclenchée depuis une page
+  # étrangère, et c'est ici qu'elle se vérifie.
+  bornes-basses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: uv venv --python 3.11 .venv
+      - name: Installer les plus vieilles versions annoncées
+        run: |
+          uv pip install --python .venv/bin/python -e '.[dev]' \
+            --resolution lowest-direct
+      - run: |
+          .venv/bin/python -c "import dbt.version; print('dbt', dbt.version.__version__)"
+          .venv/bin/python -c "import fastapi; print('fastapi', fastapi.__version__)"
+      - run: .venv/bin/pytest -q
+
+  # Ce qui part réellement chez l'utilisateur, c'est le wheel — et rien ne le
+  # vérifiait. La matrice ci-dessus installe l'arbre en éditable : un
+  # `[tool.hatch.build.targets.wheel]` mal réglé produirait un paquet qui
+  # s'installe, se lance, et sert une page blanche, sans qu'aucun test ne le
+  # dise. Les 26 fichiers statiques (`js/`, `fonts/`) ne sont couverts que là.
+  #
+  # Le même job contrôle la borne basse du backend de construction, pour la
+  # même raison : `uv build` résout toujours le hatchling le plus récent, et
+  # `requires = ["hatchling>=…"]` était donc une promesse que personne ne
+  # tenait — elle était d'ailleurs fausse.
+  paquet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv --python 3.11 .venv
+
+      - name: Construire avec le hatchling minimum déclaré
+        run: |
+          MIN=$(.venv/bin/python - <<'PY'
+          import re, pathlib
+          texte = pathlib.Path("pyproject.toml").read_text()
+          print(re.search(r'hatchling>=([0-9.]+)', texte).group(1))
+          PY
+          )
+          echo "hatchling minimum déclaré : $MIN"
+          uv pip install --python .venv/bin/python "hatchling==$MIN" build
+          # `--no-isolation` : sans lui, `build` irait chercher la dernière
+          # version et ce contrôle ne contrôlerait rien.
+          rm -rf dist
+          .venv/bin/python -m build --no-isolation --outdir dist
+
+      - name: Le wheel porte les licences qu'il doit porter
+        run: |
+          python - <<'PY'
+          import glob, zipfile, sys
+          whl = glob.glob("dist/*.whl")[0]
+          noms = zipfile.ZipFile(whl).namelist()
+          polices = [n for n in noms if n.endswith(".woff2")]
+          licences = [n for n in noms if "/licenses/" in n]
+          print(f"{len(noms)} entrées, {len(polices)} polices, licences : {licences}")
+          manquant = []
+          if not polices:
+              manquant.append("aucune police embarquée")
+          if not any(n.endswith("LICENSE") for n in licences):
+              manquant.append("LICENSE")
+          if polices and not any(n.endswith("OFL.txt") for n in licences):
+              manquant.append("OFL.txt (les polices sont sous OFL 1.1)")
+          if manquant:
+              sys.exit("licences manquantes dans le wheel : " + ", ".join(manquant))
+          PY
+
+      - name: Installer le wheel dans un environnement neuf, et le fumer
+        run: |
+          uv venv --python 3.11 /tmp/venv-paquet
+          uv pip install --python /tmp/venv-paquet/bin/python dist/*.whl
+          # Hors du dépôt : on veut le paquet installé, pas l'arbre courant.
+          cd /tmp
+          /tmp/venv-paquet/bin/pliq --help
+          /tmp/venv-paquet/bin/python - <<'PY'
+          import sys
+          from pathlib import Path
+          import pliq
+          from pliq.server import STATIC
+          # Les ressources statiques : c'est tout ce que le navigateur reçoit,
+          # et c'est ce qu'un mauvais réglage d'emballage laisse de côté.
+          attendus = ["index.html", "app.js", "app.css", "js/recipe.js",
+                      "js/flow.js", "js/modals.js", "fonts.css",
+                      "fonts/OFL.txt"]
+          manquant = [f for f in attendus if not (STATIC / f).exists()]
+          if not list((STATIC / "fonts").glob("*.woff2")):
+              manquant.append("fonts/*.woff2")
+          if manquant:
+              sys.exit("ressources absentes du paquet installé : " + ", ".join(manquant))
+          print("paquet", pliq.__file__, "— ressources complètes")
+          PY
+
+      - name: Le serveur répond, servi depuis le paquet installé
+        run: |
+          # `TestClient` de Starlette réclame un client HTTP, et il a changé
+          # de nom en route : on installe celui qui existe.
+          uv pip install --python /tmp/venv-paquet/bin/python httpx2 \
+            || uv pip install --python /tmp/venv-paquet/bin/python httpx
+          mkdir -p /tmp/projet-fumee
+          cd /tmp/projet-fumee
+          /tmp/venv-paquet/bin/python - <<'PY'
+          import sys
+          from pathlib import Path
+          from fastapi.testclient import TestClient
+          from pliq.config import Settings
+          from pliq.server import create_app
+
+          projet = Path("/tmp/projet-fumee")
+          (projet / "dbt_project.yml").write_text(
+              "name: fumee\nprofile: fumee\nversion: '1.0'\nconfig-version: 2\n")
+          app = create_app(Settings(project_dir=projet, profiles_dir=projet))
+          with TestClient(app) as client:
+              for chemin in ("/", "/static/app.js", "/static/js/recipe.js",
+                             "/static/app.css",
+                             "/static/fonts/IBMPlexMono-400-latin.woff2"):
+                  r = client.get(chemin)
+                  print(chemin, r.status_code, len(r.content))
+                  if r.status_code != 200 or not r.content:
+                      sys.exit(f"{chemin} : {r.status_code}")
+          PY

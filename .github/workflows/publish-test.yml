@@ -1,0 +1,48 @@
+# Répétition générale sur TestPyPI, déclenchée à la main.
+#
+# TestPyPI est un index séparé, avec son propre compte : ce qu'on y publie
+# n'apparaît jamais sur PyPI. Sert à voir la page rendue et à vérifier que les
+# métadonnées passent, sans brûler un numéro de version sur le vrai index.
+#
+# À faire une fois sur test.pypi.org → Publishing → Add a pending publisher :
+#   PyPI Project Name : pliq
+#   Owner / repo      : AdrienBouhot / pliq
+#   Workflow          : publish-test.yml
+#   Environment       : testpypi
+#
+# Puis : onglet Actions → « publish-test » → Run workflow.
+name: publish-test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      # `dist/` d'abord effacé : `uv build` n'efface pas le dossier, et
+      # l'action de publication téléverse *tout* ce qu'elle y trouve. Sur un
+      # checkout neuf le risque est nul, mais ce workflow peut être rejoué
+      # ailleurs, et un artefact périmé publié ne se retire pas de PyPI.
+      - run: rm -rf dist && uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/

@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pliq</title>
+<link rel="icon" type="image/png" href="/static/logo.png">
+<!-- Les polices sont servies par l'atelier lui-même. Elles venaient d'un CDN,
+     dans un outil qui tourne sur un poste, souvent hors ligne, et qui n'a rien
+     d'autre à dire à personne : la page ne s'affichait bien qu'avec un accès
+     réseau, et chaque ouverture annonçait à Google qu'on travaillait. -->
+<link rel="stylesheet" href="/static/fonts.css">
+<!-- La palette avant la feuille qui s'en sert : elle est partagée avec la
+     documentation servie par le même atelier (/doc). -->
+<link rel="stylesheet" href="/static/palette.css">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="brand" id="btn-home" type="button" title="Tous les projets"><img src="/static/logo.png" alt="" width="20" height="20">Pliq<i>.</i></button>
+  <nav class="crumb" id="crumb"></nav>
+  <span class="spacer"></span>
+  <span id="top-tools" style="display:flex; gap:8px; align-items:center">
+    <input class="sel-input" id="select-input" placeholder="tout le projet" style="width:190px"
+           title="Sélecteur dbt (--select)">
+    <!-- `--exclude` et `--full-refresh` étaient annoncés dans le README et
+         n'existaient nulle part : `runDbt` ne transmettait que la commande et
+         le sélecteur, alors que l'API les acceptait déjà. -->
+    <input class="sel-input" id="exclude-input" placeholder="exclure…" style="width:140px"
+           title="Ce que dbt doit laisser de côté (--exclude)">
+    <label class="sel-input" id="full-refresh-lab" style="display:flex; align-items:center; gap:5px"
+           title="Reconstruit les modèles incrémentaux de zéro (--full-refresh)">
+      <input type="checkbox" id="full-refresh"> full-refresh
+    </label>
+    <select class="sel-input" id="command-sel">
+      <option value="build">build</option>
+      <option value="run">run</option>
+      <option value="test">test</option>
+      <option value="seed">seed</option>
+      <option value="compile">compile</option>
+      <option value="freshness">source freshness</option>
+      <option value="deps">deps</option>
+    </select>
+  </span>
+  <button class="pill warn deps-warn" id="deps-warn" type="button" hidden
+          title="Ce projet déclare des paquets dbt qui ne sont pas installés. Tant que « dbt deps » n'a pas tourné, le projet ne parse pas. Cliquez pour les installer.">dépendances à installer</button>
+  <span class="pill warn ws-warn" id="ws-warn" hidden
+        title="Le serveur ne transmet plus les événements. L'état affiché peut être en retard — relancez l'atelier si ça persiste.">suivi en direct interrompu</span>
+  <span class="pill idle" id="top-target" hidden></span>
+  <!-- La documentation s'ouvre dans un onglet à elle : on ne quitte pas ce
+       qu'on est en train de faire pour aller lire comment le faire. C'est un
+       vrai lien plutôt qu'un bouton — clic du milieu, « ouvrir dans un nouvel
+       onglet », signet : tout ce qu'on attend d'une adresse. -->
+  <a class="btn doc-btn" id="btn-doc" href="/doc" target="_blank" rel="noopener"
+     title="Documentation de Pliq (nouvel onglet)" aria-label="Documentation">?</a>
+  <button class="btn" id="btn-log" type="button">Journal</button>
+  <button class="btn run" id="btn-run" type="button"><span class="dot"></span><span id="run-label">dbt build</span></button>
+</header>
+
+<!-- =========================================================== VUE HOME -->
+<div class="view" id="view-home">
+  <div class="home">
+    <div class="home-head">
+      <span class="home-mark" role="img" aria-label="Pliq"></span>
+      <div>
+        <h1>Projets dbt</h1>
+        <p>Un projet, c'est un dossier contenant un <code>dbt_project.yml</code>.
+           L'atelier ne stocke rien d'autre que la liste de ces dossiers.</p>
+      </div>
+      <div class="home-actions">
+        <button class="btn" id="home-add" type="button">Ajouter un dossier existant</button>
+        <button class="btn primary" id="home-new" type="button">+ Nouveau projet</button>
+      </div>
+    </div>
+    <div class="home-scan" id="home-scan" hidden>
+      <div class="fld" style="margin:0">
+        <label for="scan-path">Dossier à explorer</label>
+        <div class="drop-row">
+          <input class="inp" id="scan-path" spellcheck="false" placeholder="/Users/moi/projets">
+          <button class="btn" id="scan-go" type="button">Chercher</button>
+        </div>
+        <p class="hint" id="scan-note">L'atelier descend de trois niveaux et s'arrête au premier <code>dbt_project.yml</code>.</p>
+      </div>
+    </div>
+    <div class="home-grid" id="home-grid"></div>
+    <p class="home-empty" id="home-empty" hidden>
+      Aucun projet connu. Créez-en un, ou pointez l'atelier vers un dossier qui en contient.
+    </p>
+  </div>
+</div>
+
+<!-- =========================================================== VUE FLOW -->
+<div class="view on" id="view-flow">
+  <div class="flow-wrap">
+    <div class="flow-main">
+      <div class="flow-bar">
+        <button class="btn sm primary" id="btn-new-dataset" type="button">+ Dataset</button>
+        <span id="flow-counts">—</span>
+        <input class="sel-input flow-find" id="flow-find" type="search" autocomplete="off"
+               placeholder="chercher un dataset…"
+               title="Ne laisse en évidence que les datasets dont le nom contient le texte saisi.">
+        <button class="btn sm" id="btn-unfold-all" type="button" hidden
+                title="Rouvrir tous les blocs repliés.">Tout déplier</button>
+        <button class="btn sm" id="btn-lineage" type="button" aria-pressed="false"
+                title="Ne garder en évidence que l'amont et l'aval du nœud sélectionné.">Lignée</button>
+        <div class="legend">
+          <span><i class="sq"></i>dataset</span>
+          <span><i class="ci"></i>recipe</span>
+          <span><i class="zn"></i>bloc replié</span>
+        </div>
+      </div>
+      <div class="flow-view" id="flow-view" tabindex="0">
+        <div class="flow" id="flow">
+          <svg class="flow-edges" id="flow-edges" aria-hidden="true"></svg>
+        </div>
+        <div class="zoombar">
+          <button type="button" id="btn-zoom-out" title="Dézoomer (−)">−</button>
+          <button type="button" id="btn-zoom-pct" title="Revenir à 100 % (0)">100 %</button>
+          <button type="button" id="btn-zoom-in" title="Zoomer (+)">+</button>
+          <span class="zsep"></span>
+          <button type="button" id="btn-zoom-fit" title="Tout faire tenir à l'écran (F)">Ajuster</button>
+        </div>
+        <p class="flow-hint">glisser pour déplacer &nbsp;·&nbsp; ⌘/Ctrl + molette pour zoomer
+          &nbsp;·&nbsp; clic droit sur un nœud pour ce qu'on en fait</p>
+      </div>
+    </div>
+
+    <aside class="rpanel">
+      <div class="rpanel-head" id="rpanel-head">
+        <div class="rpanel-title"><h2>Flow</h2></div>
+        <p class="rpanel-sub">Sélectionnez un dataset pour agir dessus.</p>
+      </div>
+      <div class="rpanel-body" id="rpanel-body"></div>
+    </aside>
+  </div>
+
+  <div class="drawer" id="drawer">
+    <div class="drawer-head">
+      <span id="log-note">aucune exécution</span>
+      <span class="spacer"></span>
+      <button class="btn sm" id="btn-clear-log" type="button">Vider</button>
+      <button class="btn sm" id="btn-close-log" type="button">Fermer</button>
+    </div>
+    <pre class="log" id="log"></pre>
+  </div>
+</div>
+
+<!-- ========================================================= VUE EXPLORE -->
+<div class="view" id="view-explore">
+  <div class="grid-pane" style="flex:1">
+    <div class="grid-bar">
+      <button class="btn sm" id="exp-back" type="button">← Flow</button>
+      <b id="exp-name" style="color:var(--ink)"></b>
+      <span class="sample-badge" id="exp-sample">Échantillon</span>
+      <span id="exp-note"></span>
+      <span class="spacer"></span>
+      <button class="btn sm" id="exp-check" type="button"
+              title="Compter les lignes et profiler les colonnes sur la table entière, pas sur l'échantillon.">Contrôle complet</button>
+      <select class="sel-input" id="exp-limit">
+        <option value="100">100 lignes</option>
+        <option value="200" selected>200 lignes</option>
+        <option value="1000">1 000 lignes</option>
+      </select>
+    </div>
+    <div class="grid-scroll" id="exp-grid"></div>
+  </div>
+</div>
+
+<!-- ========================================================== VUE RECIPE -->
+<div class="view" id="view-recipe">
+  <div class="rec-head">
+    <button class="btn sm" id="rec-back" type="button">← Flow</button>
+    <span class="ci" id="rec-icon"></span>
+    <span class="nm" id="rec-name">recipe</span>
+    <span class="io" id="rec-io"></span>
+    <span class="spacer"></span>
+    <button class="btn sm" id="rec-rename" type="button"
+            title="Renommer le modèle produit — le script visuel, la doc et les ref() suivent">Renommer</button>
+    <button class="btn sm danger" id="rec-delete" type="button"
+            title="Supprimer cette recipe">Supprimer</button>
+    <span class="saved-tag" id="rec-saved"></span>
+    <button class="btn" id="rec-sql-btn" type="button">Voir le SQL</button>
+    <button class="btn primary" id="rec-save" type="button">Enregistrer</button>
+    <button class="btn run" id="rec-run" type="button">Enregistrer &amp; exécuter</button>
+  </div>
+
+  <div class="rec-body">
+    <aside class="script">
+      <div class="stabs" role="tablist">
+        <button class="stab on" type="button" data-stab="script" role="tab">Script</button>
+        <button class="stab" type="button" data-stab="output" role="tab">Sortie</button>
+        <button class="stab" type="button" data-stab="tests" role="tab">Tests<span class="badge" id="rtests-count"></span></button>
+      </div>
+
+      <div class="spane on" id="spane-script">
+        <div class="script-head">
+          <div class="hrow">
+            <div>
+              <div class="t">Script</div>
+              <div class="d" id="script-count">aucune étape</div>
+            </div>
+            <span class="spacer"></span>
+            <button class="hbtn" id="btn-undo" type="button"
+                    title="Annuler la dernière modification (⌘Z / Ctrl+Z)">↶</button>
+            <button class="hbtn" id="btn-redo" type="button"
+                    title="Rétablir (⇧⌘Z / Ctrl+Y)">↷</button>
+          </div>
+        </div>
+        <div class="script-list" id="script-list"></div>
+        <div class="script-foot">
+          <button class="add-step" id="btn-add-step" type="button">+ Ajouter une étape</button>
+        </div>
+      </div>
+
+      <div class="spane" id="spane-output">
+        <div class="spane-body" id="output-body"></div>
+      </div>
+
+      <div class="spane" id="spane-tests">
+        <div class="spane-body" id="rtests-body"></div>
+      </div>
+    </aside>
+
+    <div class="grid-pane" style="position:relative">
+      <div class="grid-bar">
+        <span class="sample-badge" id="rec-sample">Échantillon</span>
+        <span id="rec-grid-note">—</span>
+        <span class="counts" id="rec-counts"></span>
+        <span class="cost" id="rec-cost"
+              title="Durée de la dernière requête. Chaque aperçu exécute la requête entière dans l'entrepôt : le nombre de lignes ne borne que l'affichage."></span>
+        <span class="spacer"></span>
+        <button class="btn sm" id="rec-check" type="button"
+                title="Compter les lignes et profiler les colonnes sur la table entière, pas sur l'échantillon.">Contrôle complet</button>
+        <button class="btn sm" id="rec-refresh" type="button"
+                title="Recalculer l'aperçu maintenant.">Recalculer</button>
+        <select class="sel-input" id="rec-auto"
+                title="En manuel, l'aperçu ne part que sur demande — utile sur un entrepôt facturé à la requête.">
+          <option value="auto" selected>aperçu auto</option>
+          <option value="manual">aperçu manuel</option>
+        </select>
+        <select class="sel-input" id="rec-limit">
+          <option value="100">100 lignes</option>
+          <option value="200" selected>200 lignes</option>
+          <option value="1000">1 000 lignes</option>
+        </select>
+      </div>
+      <div class="grid-scroll" id="rec-grid"></div>
+
+      <!-- bibliothèque de processeurs -->
+      <div class="lib" id="lib">
+        <div class="lib-head">
+          <input class="sel-input" id="lib-search" placeholder="Rechercher un processeur" style="width:210px">
+          <span class="cnt" id="lib-count"></span>
+          <div class="lib-shorts" id="lib-shorts"></div>
+          <button class="btn sm" id="lib-close" type="button">Fermer</button>
+        </div>
+        <div class="lib-body">
+          <div class="lib-cats" id="lib-cats"></div>
+          <div class="lib-list" id="lib-list"></div>
+          <div class="lib-help" id="lib-help"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================= modales -->
+<div class="scrim" id="scrim">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <span class="ci" id="nr-icon"></span>
+      <h2 id="nr-title">Nouvelle recipe</h2>
+    </div>
+    <div class="modal-body">
+      <div class="mhalf">
+        <h3 id="nr-in-title">Dataset d'entrée</h3>
+        <div id="nr-inputs"></div>
+        <button class="btn ghost sm" id="nr-add-input" type="button" hidden>+ Ajouter une entrée</button>
+      </div>
+      <div class="mhalf">
+        <h3>Dataset de sortie</h3>
+        <div class="fld">
+          <label for="nr-name">Nom</label>
+          <input class="inp" id="nr-name" placeholder="orders_prepared" spellcheck="false">
+        </div>
+        <div class="fld">
+          <label for="nr-layer">Ranger dans</label>
+          <select class="inp" id="nr-layer"></select>
+          <p class="hint" id="nr-layer-hint"></p>
+        </div>
+        <div class="fld">
+          <label for="nr-mat">Matérialisation</label>
+          <select class="inp" id="nr-mat">
+            <option value="view">view</option>
+            <option value="table">table</option>
+            <option value="incremental">incremental</option>
+            <option value="ephemeral">ephemeral</option>
+          </select>
+          <p class="hint" id="nr-mat-hint"></p>
+        </div>
+        <div class="fld">
+          <label for="nr-desc">Description</label>
+          <input class="inp txt" id="nr-desc" placeholder="À quoi sert ce dataset ?">
+        </div>
+        <p class="merr" id="nr-err"></p>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="nr-cancel" type="button">Annuler</button>
+      <button class="btn primary" id="nr-create" type="button">Créer la recipe</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="sql-scrim">
+  <div class="modal" style="width:min(920px,100%)">
+    <div class="modal-head">
+      <h2 id="sql-title">SQL dbt généré</h2>
+      <span class="spacer"></span>
+      <code id="sql-path" style="font-family:var(--mono); font-size:11.5px; color:var(--muted)"></code>
+    </div>
+    <pre class="code" id="sql-view" style="max-height:66vh"></pre>
+    <div id="sql-edit-host" hidden style="height:66vh; margin:0 14px"></div>
+    <div class="modal-foot">
+      <p class="mnote" id="sql-note"></p>
+      <p class="merr" id="sql-err"></p>
+      <span class="spacer"></span>
+      <button class="btn" id="sql-close" type="button">Fermer</button>
+      <button class="btn primary" id="sql-save" type="button" hidden>Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="tests-scrim">
+  <div class="modal" style="width:min(900px,100%)">
+    <div class="modal-head">
+      <h2>Tests &amp; documentation</h2>
+      <span class="spacer"></span>
+      <code id="tests-path" style="font-family:var(--mono); font-size:11.5px; color:var(--muted)"></code>
+    </div>
+    <div id="tests-modal-body" style="overflow:auto; flex:1; min-height:0"></div>
+    <div class="modal-foot">
+      <span id="tests-status" style="font-size:12px; color:var(--muted)"></span>
+      <span class="spacer"></span>
+      <button class="btn" id="tests-cancel" type="button">Fermer</button>
+      <button class="btn primary" id="tests-save" type="button">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="ds-scrim">
+  <div class="modal" style="width:min(980px,100%)">
+    <div class="modal-head">
+      <h2>Nouveau dataset</h2>
+      <span class="spacer"></span>
+      <span class="mnote">Une table entre dans le Flow en étant déclarée&nbsp;: rien n'est copié.</span>
+    </div>
+
+    <div class="dpane on" id="dpane-source">
+      <div class="dpick">
+        <div class="dpick-list">
+          <div class="dpick-bar">
+            <input class="sel-input" id="ds-search" placeholder="Filtrer les tables" style="width:200px">
+            <label class="chk"><input type="checkbox" id="ds-hide-known" checked> masquer celles déjà déclarées</label>
+            <span class="spacer"></span>
+            <span class="cnt" id="ds-count"></span>
+          </div>
+          <div class="dpick-scroll" id="ds-tables"></div>
+        </div>
+        <div class="dpick-form">
+          <div class="fld">
+            <label for="ds-source-name">Groupe de sources</label>
+            <input class="inp" id="ds-source-name" placeholder="raw" spellcheck="false" list="ds-source-list">
+            <datalist id="ds-source-list"></datalist>
+            <p class="hint">Le premier argument de <code>source('raw', 'orders')</code>.</p>
+          </div>
+          <div class="fld">
+            <label for="ds-source-desc">Description</label>
+            <input class="inp txt" id="ds-source-desc" placeholder="D'où viennent ces tables ?">
+          </div>
+          <div class="dprev" id="ds-source-prev"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <p class="merr" id="ds-err"></p>
+      <span class="spacer"></span>
+      <button class="btn" id="ds-cancel" type="button">Annuler</button>
+      <button class="btn primary" id="ds-create" type="button">Déclarer la source</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="np-scrim">
+  <div class="modal" style="width:min(620px,100%)">
+    <div class="modal-head"><h2>Nouveau projet dbt</h2></div>
+    <div class="modal-body solo">
+      <div class="fld">
+        <label for="np-name">Nom du projet</label>
+        <input class="inp" id="np-name" placeholder="mon_entrepot" spellcheck="false">
+        <p class="hint">Minuscules, chiffres et « _ ». C'est aussi le nom du profil dbt.</p>
+      </div>
+      <div class="fld">
+        <label for="np-parent">Créer dans</label>
+        <input class="inp" id="np-parent" spellcheck="false">
+        <p class="hint" id="np-preview"></p>
+      </div>
+      <div class="npinfo">
+        L'atelier écrit un projet DuckDB complet : <code>dbt_project.yml</code>,
+        <code>profiles.yml</code> (cibles <code>dev</code> et <code>prod</code>),
+        les trois couches <code>staging</code> / <code>intermediate</code> / <code>marts</code>,
+        et les dossiers <code>seeds</code>, <code>macros</code>, <code>tests</code>,
+        <code>snapshots</code>. Pour un autre entrepôt, utilisez <code>dbt init</code>
+        puis « Ajouter un dossier existant ».
+        <br>dbt signalera « unused configuration paths » tant qu'une couche est
+        vide : l'avertissement disparaît au premier modèle rangé dedans.
+      </div>
+      <p class="merr" id="np-err"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="np-cancel" type="button">Annuler</button>
+      <button class="btn primary" id="np-create" type="button">Créer et ouvrir</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="del-scrim">
+  <div class="modal" style="width:min(560px,100%)">
+    <div class="modal-head"><h2 id="del-title">Supprimer le projet</h2></div>
+    <div class="modal-body solo">
+      <div class="warnbox" id="del-warn"></div>
+      <div class="fld">
+        <label for="del-confirm">Tapez le nom du dossier pour confirmer</label>
+        <input class="inp" id="del-confirm" spellcheck="false" autocomplete="off">
+      </div>
+      <p class="merr" id="del-err"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="del-cancel" type="button">Annuler</button>
+      <button class="btn danger" id="del-go" type="button">Supprimer définitivement</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="rdel-scrim">
+  <div class="modal" style="width:min(540px,100%)">
+    <div class="modal-head"><h2 id="rdel-title">Supprimer la recipe</h2></div>
+    <div class="modal-body solo">
+      <div class="warnbox" id="rdel-warn"></div>
+      <label class="chk" id="rdel-choix" style="margin-top:10px; align-items:flex-start; line-height:1.5">
+        <input type="checkbox" id="rdel-model" checked style="margin-top:3px">
+        <span id="rdel-model-lbl">supprimer aussi le modèle</span>
+      </label>
+      <p class="merr" id="rdel-err"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="rdel-cancel" type="button">Annuler</button>
+      <button class="btn danger" id="rdel-go" type="button">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="rren-scrim">
+  <div class="modal" style="width:min(560px,100%)">
+    <div class="modal-head"><h2 id="rren-title">Renommer le modèle</h2></div>
+    <div class="modal-body solo">
+      <div class="fld">
+        <label for="rren-name">Nouveau nom</label>
+        <input class="inp" id="rren-name" spellcheck="false" autocomplete="off"
+               autocapitalize="off" placeholder="orders_prepared">
+      </div>
+      <p class="hint" id="rren-hint"></p>
+      <div class="warnbox" id="rren-warn" hidden></div>
+      <p class="merr" id="rren-err"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="rren-cancel" type="button">Annuler</button>
+      <button class="btn primary" id="rren-go" type="button">Renommer</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="data-scrim">
+  <div class="modal" style="width:min(1040px,100%)">
+    <div class="modal-head">
+      <h2 id="data-title">—</h2>
+      <span class="spacer"></span>
+      <span class="mnote" id="data-note"></span>
+    </div>
+    <div id="data-body" style="overflow:auto; flex:1; min-height:0; max-height:70vh"></div>
+    <div class="modal-foot">
+      <span class="spacer"></span>
+      <button class="btn" id="data-close" type="button">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="imp-scrim">
+  <div class="modal" style="width:min(620px,100%)">
+    <div class="modal-head"><h2>Des colonnes changent en aval</h2></div>
+    <div class="modal-body solo">
+      <div class="warnbox" id="imp-warn"></div>
+      <div id="imp-list" style="margin-top:10px"></div>
+      <p class="hint">Seuls les modèles qui <b>lisent</b> la colonne sont listés.
+        Un modèle qui se contente d'un <code>select *</code> ne casse pas : sa sortie
+        change simplement de forme.</p>
+      <p class="hint">L'atelier ne les réécrit pas à votre place : dans un
+        <code>union all</code>, deux branches peuvent lire une colonne du même
+        nom sans que ce soit la même, et la réécriture renommait les deux.
+        Ouvrez ces modèles avant le prochain <code>dbt build</code>.</p>
+      <p class="merr" id="imp-err"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="imp-cancel" type="button">Revenir au script</button>
+      <button class="btn primary" id="imp-go" type="button">Enregistrer quand même</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="sqldiv-scrim">
+  <div class="modal" style="width:min(620px,100%)">
+    <div class="modal-head"><h2>Le SQL a été modifié hors de l'atelier</h2></div>
+    <div class="modal-body solo">
+      <div class="warnbox" id="sqldiv-warn"></div>
+      <p class="hint">Un script visuel <b>écrit</b> son fichier <code>.sql</code> :
+        l'enregistrer le regénère entièrement. Ce qui a été tapé dans un éditeur
+        de texte depuis n'y survivrait pas.</p>
+      <p class="hint">Pour garder cette modification, reportez-la dans le script —
+        ou supprimez la recipe en gardant le SQL, et ce modèle redevient écrit à
+        la main.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="sqldiv-cancel" type="button">Revenir au script</button>
+      <button class="btn primary" id="sqldiv-go" type="button">Remplacer le SQL</button>
+    </div>
+  </div>
+</div>
+
+<!-- La question de sortie. Elle était posée par `confirm()`, c'est-à-dire par
+     le navigateur : la seule boîte de l'atelier qui ne ressemblait pas à
+     l'atelier, et dont les deux boutons disaient « OK » et « Annuler » plutôt
+     que le geste qu'ils font. -->
+<div class="scrim" id="quit-scrim">
+  <div class="modal" style="width:min(460px,100%)">
+    <div class="modal-head"><h2 id="quit-title">Quitter sans enregistrer ?</h2></div>
+    <div class="modal-body solo">
+      <div class="warnbox" id="quit-msg" style="margin:0"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="quit-cancel" type="button">Rester</button>
+      <button class="btn danger" id="quit-go" type="button">Quitter sans enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="cmenu" id="cmenu"></div>
+<div class="cmenu" id="flow-menu"></div>
+<div class="toasts" id="toasts"></div>
+
+<!-- `type="module"` : app.js n'est plus qu'un point d'entrée, et les
+     modules qu'il importe sont sous /static/js/. Pas d'étape de build —
+     le navigateur résout les imports lui-même. -->
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>
