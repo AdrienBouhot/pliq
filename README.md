@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://pypi.org/project/pliq/"><img src="https://img.shields.io/pypi/v/pliq" alt="PyPI"></a>
   <a href="https://pypi.org/project/pliq/"><img src="https://img.shields.io/pypi/pyversions/pliq" alt="Python"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/pypi/l/pliq" alt="MIT"></a>
+  <a href="https://github.com/AdrienBouhot/pliq/blob/main/LICENSE"><img src="https://img.shields.io/pypi/l/pliq" alt="MIT"></a>
 </p>
 
 
